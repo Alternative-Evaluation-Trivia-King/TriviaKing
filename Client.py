@@ -52,6 +52,8 @@ def client():
 
 
 def clientPlay(client_TCP):
+    message = client_TCP.recv(1024).decode('utf-8')
+    print(message)
     while True:
         pass
     # welcome_message = client_TCP.recv(1024).decode()

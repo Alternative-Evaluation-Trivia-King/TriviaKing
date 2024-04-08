@@ -6,7 +6,7 @@ import threading
 # Server configuration
 BROADCAST_PORT = 13117
 SERVER_IP = None  # Change this to the desired server IP address
-client_names = []
+clients_information = []
 timer_thread = None
 StopOffer = False
 StopListen = False
@@ -53,8 +53,8 @@ def listen_for_clients(SERVER_PORT):
     while not StopListen:
         try:
             # Accept incoming client connection
-            client_socket, _ = tcp_server_socket.accept()
-            save_user_thread = threading.Thread(target=save_user, args=(client_socket,))
+            client_socket, client_address = tcp_server_socket.accept()
+            save_user_thread = threading.Thread(target=save_user, args=(client_socket, client_address))
             save_user_thread.daemon = True  # Daemonize the thread so it terminates with the main thread
             save_user_thread.start()
 
@@ -66,14 +66,11 @@ def listen_for_clients(SERVER_PORT):
             continue
 
 
-def save_user(client_socket):
+def save_user(client_socket, client_address):
     global timer_thread
     # Receive player name from client
     player_name = client_socket.recv(1024).decode().strip()
-    client_names.append(player_name)
-
-    # Close the client socket
-    client_socket.close()
+    clients_information.append((player_name, client_socket))
 
     # Start or reset the timer
     if timer_thread is not None:
@@ -128,14 +125,26 @@ def craft_offer_packet(SERVER_PORT):
     return offer_packet
 
 
+def send_welcome_message(client_info):
+    # Create a TCP socket for sending messages
+    try:
+        # Send the welcome message
+        welcome_message = f"Welcome, {client_info[0]}! The game is starting."
+        client_info[1].sendall(welcome_message.encode())
+
+    except Exception as e:
+        print(f"Error sending welcome message to {client_info[0]}: {e}")
+
+
 def start_game():
     global StopOffer
     global StopListen
     StopOffer = True
     StopListen = True
-    print("hiiiiiii")
-    StopOffer = False
-    StopListen = False
+    for client_info in clients_information:
+        send_welcome_message(client_info)
+    # StopOffer = False
+    # StopListen = False
 
 
 if __name__ == "__main__":
