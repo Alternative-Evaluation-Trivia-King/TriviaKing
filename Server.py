@@ -2,6 +2,7 @@ import errno
 import socket
 import time
 import threading
+import random
 
 # Server configuration
 BROADCAST_PORT = 13117
@@ -11,6 +12,40 @@ timer_thread = None
 StopOffer = False
 StopListen = False
 server_socket = None
+
+trivia_questions = [
+    {"question": "Paris is the capital city of France.", "is_true": True},
+    {"question": "Berlin is the capital city of Germany.", "is_true": True},
+    {"question": "Rome is the capital city of Italy.", "is_true": True},
+    {"question": "London is the capital city of England.", "is_true": False},
+    {"question": "Madrid is the capital city of Spain.", "is_true": True},
+    {"question": "Athens is the capital city of Greece.", "is_true": True},
+    {"question": "Vienna is the capital city of Austria.", "is_true": True},
+    {"question": "Stockholm is the capital city of Denmark.", "is_true": False},
+    {"question": "Lisbon is the capital city of Portugal.", "is_true": True},
+    {"question": "Dublin is the capital city of Ireland.", "is_true": True},
+    {"question": "Warsaw is the capital city of Poland.", "is_true": True},
+    {"question": "Brussels is the capital city of Switzerland.", "is_true": False},
+    {"question": "Oslo is the capital city of Norway.", "is_true": True},
+    {"question": "Moscow is the capital city of Russia.", "is_true": True},
+    {"question": "Copenhagen is the capital city of Sweden.", "is_true": True},
+    {"question": "Budapest is the capital city of Hungary.", "is_true": True},
+    {"question": "Helsinki is the capital city of Finland.", "is_true": True},
+    {"question": "Amsterdam is the capital city of the Netherlands.", "is_true": False},
+    {"question": "Prague is the capital city of the Czech Republic.", "is_true": True},
+    {"question": "Bern is the capital city of Switzerland.", "is_true": False},
+    {"question": "Sofia is the capital city of Bulgaria.", "is_true": True},
+    {"question": "Tallinn is the capital city of Lithuania.", "is_true": False},
+    {"question": "Belgrade is the capital city of Croatia.", "is_true": False},
+    {"question": "Bucharest is the capital city of Romania.", "is_true": True},
+    {"question": "Bratislava is the capital city of Slovakia.", "is_true": True},
+    {"question": "Vilnius is the capital city of Latvia.", "is_true": False},
+    {"question": "Ljubljana is the capital city of Slovenia.", "is_true": False},
+    {"question": "Tirana is the capital city of Albania.", "is_true": True},
+    {"question": "Skopje is the capital city of Macedonia.", "is_true": True},
+    {"question": "Podgorica is the capital city of Montenegro.", "is_true": True},
+]
+
 
 def get_ip_address():
     global SERVER_IP
@@ -129,7 +164,15 @@ def send_welcome_message(client_info):
     # Create a TCP socket for sending messages
     try:
         # Send the welcome message
-        welcome_message = f"Welcome, {client_info[0]}! The game is starting."
+        welcome_message = f"Welcome, {client_info[0]}! Welcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
+        for index, client in enumerate(clients_information):
+            welcome_message += f"Player {index}: {client[0]}\n\n\n"
+            print(welcome_message)
+
+        random_question = random.choice(trivia_questions)
+        question_text = random_question["question"]
+        question_message = f"True or false: {question_text}\n"
+
         client_info[1].sendall(welcome_message.encode())
 
     except Exception as e:
@@ -143,6 +186,17 @@ def start_game():
     StopListen = True
     for client_info in clients_information:
         send_welcome_message(client_info)
+
+    while True:
+        random_question = random.choice(trivia_questions)
+        question_text = random_question["question"]
+        question_message = f"True or false: {question_text}\n"
+        trivia_questions.remove(random_question)
+
+        #client_info[1].sendall(question_message.encode())
+
+    # Delete the chosen question from the list
+
     # StopOffer = False
     # StopListen = False
 

@@ -1,9 +1,16 @@
 import random
 import socket
+import time
+
+import keyboard
 
 # Server configuration
 BROADCAST_PORT = 13117
-names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Hannah", "Isaac", "Julia", "Kevin", "Linda", "Michael", "Nancy", "Olivia"]
+names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Hannah", "Isaac", "Julia", "Kevin", "Linda",
+         "Michael", "Nancy", "Olivia"]
+flagValidInput = False
+flagTimeoutToInput = False
+
 
 def client():
     # Create a UDP socket
@@ -29,7 +36,8 @@ def client():
                 print("The received package does not meet certain criteria")
                 continue
 
-            print("Received offer from server "+server_name+" at address "+server_address[0]+", attempting to connect...")
+            print("Received offer from server " + server_name + " at address " + server_address[
+                0] + ", attempting to connect...")
 
             # Connect to the server over TCP
             client_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -46,18 +54,41 @@ def client():
             print("Client shutting down...")
             break
 
-
     # Close the socket
     client_UDP.close()
 
 
 def clientPlay(client_TCP):
+    global flagValidInput
+    global flagTimeoutToInput
+
+    def on_key_press(event):
+        global flagValidInput
+        if event.name in ['Y', 'T', '1', 'N', 'F', '0']:
+            # Send the user's choice to the server
+            client_TCP.sendall(event.name.encode())
+            flagValidInput = True
+
+        else:
+            print("Invalid input")
+
     message = client_TCP.recv(1024).decode('utf-8')
     print(message)
+    # Register the key press listener
+    keyboard.on_press(on_key_press)
     while True:
-        pass
-    # welcome_message = client_TCP.recv(1024).decode()
-    # print(welcome_message)
+        timeToEnterInput = 10
+        question = client_TCP.recv(1024).decode('utf-8')
+        print(question)
+        # Block the main thread to keep listening for key presses
+
+        while not flagTimeoutToInput and not flagValidInput:
+            startTime = time.time()
+            keyboard.wait(timeToEnterInput)
+            timeToEnterInput = timeToEnterInput - (time.time() - startTime)
+            if timeToEnterInput <= 0:
+                flagTimeoutToInput = False
+
 
 if __name__ == "__main__":
     client()
