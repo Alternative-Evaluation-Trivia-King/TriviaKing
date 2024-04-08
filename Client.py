@@ -1,7 +1,7 @@
 import random
 import socket
 import time
-import keyboard
+#import keyboard
 
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
@@ -54,7 +54,7 @@ def client():
             print("Client shutting down...")
             break
 
-    # Close the socket
+    # Close the UDP socket
     client_UDP.close()
 
 
@@ -73,8 +73,7 @@ def ExtractPacketFromServer(data):
 
 
 def clientPlay(client_TCP):
-    global flagValidInput
-    global flagTimeoutToInput
+    global flagValidInput, flagTimeoutToInput
 
     def on_key_press(event):
         global flagValidInput

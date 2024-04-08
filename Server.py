@@ -4,7 +4,8 @@ import time
 import threading
 import random
 
-# Server configuration
+'''----------------------------------------- Global variable --------------------------------------------------'''
+
 BROADCAST_PORT = 13117
 SERVER_IP = None  # Change this to the desired server IP address
 clients_information = []
@@ -71,9 +72,7 @@ def server():
     print("Server started, listening on IP address", SERVER_IP)
 
     # Create a thread for sending offer announcements
-    offer_thread = threading.Thread(target=send_offer_announcements, args=(server_socket, SERVER_PORT))
-    offer_thread.daemon = True  # Daemonize the thread so it terminates with the main thread
-    offer_thread.start()
+    threading.Thread(target=send_offer_announcements, args=(server_socket, SERVER_PORT), daemon=True).start()
 
     # Listen for client names
     listen_for_clients(SERVER_PORT)
@@ -82,16 +81,17 @@ def server():
 def listen_for_clients(SERVER_PORT):
     # Create a TCP socket for accepting client connections
     tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Bind the tcp server socket to IP and Port
     tcp_server_socket.bind((SERVER_IP, SERVER_PORT))
+    # Enable to accept incoming connections
     tcp_server_socket.listen()
 
     while not StopListen:
         try:
             # Accept incoming client connection
-            client_socket, client_address = tcp_server_socket.accept()
-            save_user_thread = threading.Thread(target=save_user, args=(client_socket, client_address))
-            save_user_thread.daemon = True  # Daemonize the thread so it terminates with the main thread
-            save_user_thread.start()
+            client_socket, _ = tcp_server_socket.accept()
+            # Create a thread for save user
+            threading.Thread(target=save_user, args=(client_socket,), daemon=True).start()
 
         except KeyboardInterrupt:
             print("Listening thread shutting down...")
@@ -101,7 +101,7 @@ def listen_for_clients(SERVER_PORT):
             continue
 
 
-def save_user(client_socket, client_address):
+def save_user(client_socket):
     global timer_thread
     # Receive player name from client
     player_name = client_socket.recv(1024).decode().strip()
@@ -148,7 +148,6 @@ def findFreePort():
         return SERVER_PORT, server_socket
 
 
-
 def craft_offer_packet(SERVER_PORT):
     # Craft the offer announcement packet
     magic_cookie = b'\xab\xcd\xdc\xba'
@@ -193,7 +192,7 @@ def start_game():
         question_message = f"True or false: {question_text}\n"
         trivia_questions.remove(random_question)
 
-        #client_info[1].sendall(question_message.encode())
+        # client_info[1].sendall(question_message.encode())
 
     # Delete the chosen question from the list
 
