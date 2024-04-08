@@ -1,17 +1,35 @@
+import errno
 import socket
 import time
 import threading
 
 # Server configuration
 BROADCAST_PORT = 13117
-SERVER_IP = "172.1.0.4"  # Change this to the desired server IP address
+SERVER_IP = None  # Change this to the desired server IP address
 client_names = []
+timer_thread = None
+StopOffer = False
+StopListen = False
+server_socket = None
+
+def get_ip_address():
+    global SERVER_IP
+    # Create a socket object
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # Connect to a remote server (doesn't matter which one)
+        s.connect(("8.8.8.8", 80))
+        # Get the local IP address of the socket
+        SERVER_IP = s.getsockname()[0]
+    finally:
+        # Close the socket
+        s.close()
 
 
 def server():
+    global server_socket
     # Create a UDP socket
     SERVER_PORT, server_socket = findFreePort()
-
     # Set socket options to allow broadcasting
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
@@ -30,27 +48,42 @@ def listen_for_clients(SERVER_PORT):
     # Create a TCP socket for accepting client connections
     tcp_server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tcp_server_socket.bind((SERVER_IP, SERVER_PORT))
-    # tcp_server_socket.listen()  # Listen for incoming connections
+    tcp_server_socket.listen()
 
-    while True:
+    while not StopListen:
         try:
             # Accept incoming client connection
             client_socket, _ = tcp_server_socket.accept()
-
-            # Receive player name from client
-            player_name = client_socket.recv(1024).decode().strip()
-            client_names.append(player_name)
-
-            # Close the client socket
-            client_socket.close()
+            save_user_thread = threading.Thread(target=save_user, args=(client_socket,))
+            save_user_thread.daemon = True  # Daemonize the thread so it terminates with the main thread
+            save_user_thread.start()
 
         except KeyboardInterrupt:
             print("Listening thread shutting down...")
             break
 
+        except socket.error as e:
+            continue
+
+
+def save_user(client_socket):
+    global timer_thread
+    # Receive player name from client
+    player_name = client_socket.recv(1024).decode().strip()
+    client_names.append(player_name)
+
+    # Close the client socket
+    client_socket.close()
+
+    # Start or reset the timer
+    if timer_thread is not None:
+        timer_thread.cancel()
+    timer_thread = threading.Timer(10, start_game)
+    timer_thread.start()
+
 
 def send_offer_announcements(server_socket, SERVER_PORT):
-    while True:
+    while not StopOffer:
         try:
             # Craft and send the offer announcement packet
             offer_packet = craft_offer_packet(SERVER_PORT)
@@ -66,15 +99,22 @@ def send_offer_announcements(server_socket, SERVER_PORT):
 
 
 def findFreePort():
+    get_ip_address()
+    global server_socket
     SERVER_PORT = 5000
     while True:
         try:
+            print(SERVER_IP)
             server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             server_socket.bind((SERVER_IP, SERVER_PORT))
-            return SERVER_PORT, server_socket
 
         except OSError as e:
-            SERVER_PORT += 1
+            if e.errno == errno.EADDRINUSE:
+                SERVER_PORT += 1
+                continue
+
+        return SERVER_PORT, server_socket
+
 
 
 def craft_offer_packet(SERVER_PORT):
@@ -86,3 +126,17 @@ def craft_offer_packet(SERVER_PORT):
 
     offer_packet = magic_cookie + message_type + server_name + server_port
     return offer_packet
+
+
+def start_game():
+    global StopOffer
+    global StopListen
+    StopOffer = True
+    StopListen = True
+    print("hiiiiiii")
+    StopOffer = False
+    StopListen = False
+
+
+if __name__ == "__main__":
+    server()
