@@ -1,3 +1,7 @@
+import random
+from Client import Client
+
+
 class Bot(Client):
 
 

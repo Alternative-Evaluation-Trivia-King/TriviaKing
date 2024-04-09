@@ -331,7 +331,6 @@ def start_game():
         plot_graph()
         print("Game over, sending out offer requests...")
 
-
         reset_game()
 
     except OSError as e:
