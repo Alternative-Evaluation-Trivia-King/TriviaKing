@@ -7,12 +7,9 @@ import random
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
 BROADCAST_PORT = 13117
-SERVER_IP = None  # Change this to the desired server IP address
+SERVER_IP, timer_thread, server_socket = None, None, None
 clients_information = []
-timer_thread = None
-StopOffer = False
-StopListen = False
-server_socket = None
+StopOffer, StopListen = False, False
 
 trivia_questions = [
     {"question": "Paris is the capital city of France.", "is_true": True},
@@ -131,25 +128,29 @@ def send_offer_announcements(server_socket, SERVER_PORT):
 
 
 def findFreePort():
-    get_ip_address()
     global server_socket
+    get_ip_address()
     SERVER_PORT = 5000
     while True:
         try:
-            print(SERVER_IP)
+            # Try open socket
             server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Try bind with this socket
             server_socket.bind((SERVER_IP, SERVER_PORT))
 
         except OSError as e:
+            # If socket is in use
             if e.errno == errno.EADDRINUSE:
+                # Try another Socket
                 SERVER_PORT += 1
                 continue
 
+        # Return desired socket
         return SERVER_PORT, server_socket
 
 
+# Craft the offer announcement packet
 def craft_offer_packet(SERVER_PORT):
-    # Craft the offer announcement packet
     magic_cookie = b'\xab\xcd\xdc\xba'
     message_type = b'\x02'
     server_name = "MyServer".ljust(32, '\x00').encode('utf-8')
@@ -160,7 +161,6 @@ def craft_offer_packet(SERVER_PORT):
 
 
 def send_welcome_message(client_info):
-    # Create a TCP socket for sending messages
     try:
         # Send the welcome message
         welcome_message = f"Welcome, {client_info[0]}! Welcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
@@ -168,33 +168,27 @@ def send_welcome_message(client_info):
             welcome_message += f"Player {index}: {client[0]}\n\n\n"
             print(welcome_message)
 
-        random_question = random.choice(trivia_questions)
-        question_text = random_question["question"]
-        question_message = f"True or false: {question_text}\n"
-
-        client_info[1].sendall(welcome_message.encode())
-
     except Exception as e:
         print(f"Error sending welcome message to {client_info[0]}: {e}")
 
 
 def start_game():
-    global StopOffer
-    global StopListen
-    StopOffer = True
-    StopListen = True
+    global StopOffer, StopListen
+    StopOffer, StopListen = True, True
+
     for client_info in clients_information:
         send_welcome_message(client_info)
 
     while True:
+        # Choose random question
         random_question = random.choice(trivia_questions)
         question_text = random_question["question"]
         question_message = f"True or false: {question_text}\n"
+        # Delete the chosen question from the list
         trivia_questions.remove(random_question)
 
         # client_info[1].sendall(question_message.encode())
 
-    # Delete the chosen question from the list
 
     # StopOffer = False
     # StopListen = False
