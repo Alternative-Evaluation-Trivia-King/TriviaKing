@@ -4,13 +4,15 @@ import time
 import threading
 import random
 import copy
+import matplotlib.pyplot as plt
+
 
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
 BROADCAST_PORT = 13117
-SERVER_IP, timer_thread, Server_UDP, Server_TCP = 0, 0, 0, 0
-StopOffer, StopListen = False, False
-clients_information, client_answer, threads_per_client = [], [], []
+SERVER_IP, Server_UDP, Server_TCP = 0, 0, 0
+StopOffer = False
+clients_information, client_answer, threads_per_client, total_score = [], [], [], []
 winner = ""
 Round = 1
 
@@ -29,22 +31,15 @@ trivia_questions = [
     {"question": "Brussels is the capital city of Switzerland.", "is_true": False},
     {"question": "Oslo is the capital city of Norway.", "is_true": True},
     {"question": "Moscow is the capital city of Russia.", "is_true": True},
-    {"question": "Copenhagen is the capital city of Sweden.", "is_true": True},
-    {"question": "Budapest is the capital city of Hungary.", "is_true": True},
     {"question": "Helsinki is the capital city of Finland.", "is_true": True},
     {"question": "Amsterdam is the capital city of the Netherlands.", "is_true": False},
     {"question": "Prague is the capital city of the Czech Republic.", "is_true": True},
     {"question": "Bern is the capital city of Switzerland.", "is_true": False},
-    {"question": "Sofia is the capital city of Bulgaria.", "is_true": True},
     {"question": "Tallinn is the capital city of Lithuania.", "is_true": False},
     {"question": "Belgrade is the capital city of Croatia.", "is_true": False},
-    {"question": "Bucharest is the capital city of Romania.", "is_true": True},
     {"question": "Bratislava is the capital city of Slovakia.", "is_true": True},
     {"question": "Vilnius is the capital city of Latvia.", "is_true": False},
     {"question": "Ljubljana is the capital city of Slovenia.", "is_true": False},
-    {"question": "Tirana is the capital city of Albania.", "is_true": True},
-    {"question": "Skopje is the capital city of Macedonia.", "is_true": True},
-    {"question": "Podgorica is the capital city of Montenegro.", "is_true": True},
 ]
 
 copy_questions = copy.deepcopy(trivia_questions)
@@ -117,7 +112,7 @@ def listen_for_clients(SERVER_PORT):
         # Enable to accept incoming connections
         Server_TCP.listen()
 
-        while not StopListen:
+        while True:
             try:
                 Server_TCP.settimeout(10)
                 # Accept incoming client connection
@@ -141,13 +136,13 @@ def listen_for_clients(SERVER_PORT):
 
 
 def save_user(client_socket):
-    global timer_thread
     # Receive player name from client
     try:
         player_name = client_socket.recv(1024).decode().strip()
         clients_information.append((player_name, client_socket))
         client_answer.append(False)
         threads_per_client.append(0)
+        total_score.append(0)
 
     except OSError as e:
         print(f"Error with client socket: {e}")
@@ -214,6 +209,7 @@ def handler_question_per_client(client_info, question, answer, index):
             # Check if the player's answer is correct
             if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
                 client_answer[index] = True
+                total_score[index] += 1
             else:
                 client_answer[index] = False
 
@@ -242,7 +238,7 @@ def choose_question():
         for index, answer_client in enumerate(client_answer):
             if answer_client is not None:
                 question_message += f" {clients_information[index][0]} and"
-        question_message = question_message + "\n"
+        question_message = question_message[:-3] + "\n"
 
     question_message += f"True or false: {question_text}\n"
     return question_message, answer_text
@@ -283,19 +279,32 @@ def calculate_round_score():
 
 
 def reset_game():
-    global Server_TCP, StopOffer, Round, StopListen, clients_information, client_answer, threads_per_client, copy_questions, timer_thread, SERVER_IP, Server_UDP
-    clients_information, client_answer, threads_per_client = [], [], []
+    global Server_TCP, StopOffer, Round, clients_information, client_answer, threads_per_client, copy_questions, SERVER_IP, Server_UDP, total_score
+    clients_information, client_answer, threads_per_client, total_score = [], [], [], []
     Round = 1
     copy_questions = copy.deepcopy(trivia_questions)
     Server_TCP.close()
-    timer_thread, SERVER_IP, Server_TCP = 0, 0, 0
+    SERVER_IP, Server_TCP = 0, 0
+    StopOffer = False
 
+def plot_graph():
+    # Create bar graph
+    names = [client[0] for client in clients_information]
+    plt.bar(names, total_score)
+
+    # Add labels and title
+    plt.xlabel('Client')
+    plt.ylabel('Score')
+    plt.title('Bar Graph Example')
+
+    # Show plot
+    plt.show()
 
 def start_game():
-    global StopOffer, StopListen, clients_information, client_answer, threads_per_client, Round, winner
+    global StopOffer, clients_information, client_answer, threads_per_client, Round, winner
 
     try:
-        StopOffer, StopListen = True, True
+        StopOffer = True
 
         send_welcome_message()
 
@@ -319,7 +328,9 @@ def start_game():
             client_info[1].sendall(message.encode('utf-8'))
             client_info[1].close()
 
+        plot_graph()
         print("Game over, sending out offer requests...")
+
 
         reset_game()
 
@@ -331,4 +342,3 @@ def start_game():
 if __name__ == "__main__":
     while True:
         server()
-        StopOffer, StopListen = False, False
