@@ -101,7 +101,9 @@ def server():
     threading.Thread(target=send_offer_announcements, args=(Server_UDP, SERVER_PORT), daemon=True).start()
 
     # Listen for client names
-    listen_for_clients(SERVER_PORT)
+    while len(clients_information) == 0:
+        listen_for_clients(SERVER_PORT)
+    start_game()
 
 
 def listen_for_clients(SERVER_PORT):
@@ -117,10 +119,15 @@ def listen_for_clients(SERVER_PORT):
 
         while not StopListen:
             try:
+                Server_TCP.settimeout(10)
                 # Accept incoming client connection
                 client_socket, _ = Server_TCP.accept()
+                Server_TCP.settimeout(None)
                 # Create a thread for save user
                 threading.Thread(target=save_user, args=(client_socket,), daemon=True).start()
+
+            except socket.timeout:
+                break
 
             except KeyboardInterrupt:
                 print("Listening thread shutting down...")
@@ -129,13 +136,9 @@ def listen_for_clients(SERVER_PORT):
             except socket.error as e:
                 print(f"Socket error: {e}")
                 continue
-
     except OSError as e:
         print(f"OS error occurred: {e}")
 
-    finally:
-        # Close the TCP server socket
-        Server_TCP.close()
 
 
 def save_user(client_socket):
@@ -146,12 +149,6 @@ def save_user(client_socket):
         clients_information.append((player_name, client_socket))
         client_answer.append(False)
         threads_per_client.append(0)
-
-        # Start or reset the timer
-        if timer_thread is not None:
-            timer_thread.cancel()
-        timer_thread = threading.Timer(10, start_game)
-        timer_thread.start()
 
     except OSError as e:
         print(f"Error with client socket: {e}")
@@ -335,4 +332,3 @@ if __name__ == "__main__":
     while True:
         server()
         StopOffer, StopListen = False, False
-        print("hi")
