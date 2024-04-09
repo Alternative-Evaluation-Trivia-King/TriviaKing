@@ -1,7 +1,7 @@
 import random
 import socket
 import time
-#import keyboard
+import keyboard
 
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
@@ -93,14 +93,19 @@ def clientPlay(client_TCP):
         timeToEnterInput = 10
         question = client_TCP.recv(1024).decode('utf-8')
         print(question)
-        # Block the main thread to keep listening for key presses
 
+        if "Game over!" in question:
+            break
+
+        # Block the main thread to keep listening for key presses
         while not flagTimeoutToInput and not flagValidInput:
             startTime = time.time()
             keyboard.wait(timeToEnterInput)
             timeToEnterInput = timeToEnterInput - (time.time() - startTime)
             if timeToEnterInput <= 0:
                 flagTimeoutToInput = False
+
+    print("Server disconnected, listening for offer requests...")
 
 
 if __name__ == "__main__":

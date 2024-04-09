@@ -9,7 +9,12 @@ import random
 BROADCAST_PORT = 13117
 SERVER_IP, timer_thread, server_socket = None, None, None
 clients_information = []
+client_answer = []
+threads_per_client = []
 StopOffer, StopListen = False, False
+correct_answer = None
+winner = ""
+Round = 1
 
 trivia_questions = [
     {"question": "Paris is the capital city of France.", "is_true": True},
@@ -103,6 +108,8 @@ def save_user(client_socket):
     # Receive player name from client
     player_name = client_socket.recv(1024).decode().strip()
     clients_information.append((player_name, client_socket))
+    client_answer.append(False)
+    threads_per_client.append(0)
 
     # Start or reset the timer
     if timer_thread is not None:
@@ -167,7 +174,76 @@ def send_welcome_message():
         for index, client in enumerate(clients_information):
             welcome_message += f"Player {index}: {client[0]}\n\n\n"
 
+    for client_info in clients_information:
+        client_info[1].sendall(welcome_message.encode('utf-8'))
+
     print(welcome_message.split("! ")[1])
+
+
+def handler_question_per_client(client_info, question, answer, index):
+    global correct_answer
+    client_info[1].sendall(question.encode('utf-8'))
+    client_info[1].settimeout(10)  # Set a timeout of 10 seconds
+    try:
+        player_answer = client_info.recv(1024).decode()
+        # Check if the player's answer is correct
+        if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
+            client_answer[index] = True
+        else:
+            client_answer[index] = False
+
+    except socket.timeout:
+        client_answer[index] = False
+
+
+def choose_question():
+    question_message = ""
+    # Choose random question
+    random_question = random.choice(trivia_questions)
+    question_text = random_question["question"]
+    answer_text = random_question["answer"]
+
+    # Delete the chosen question from the list
+    trivia_questions.remove(random_question)
+
+    if Round >= 2:
+        question_message = f"Round {Round}, played by"
+        for index, answer_client in enumerate(client_answer):
+            if answer_client is None:
+                question_message += f" {clients_information[index][0]} and"
+        question_message = question_message[:-3] + "\n"
+
+    question_message += f"True or false: {question_text}\n"
+    return question_message, answer_text
+
+
+def calculate_round_score():
+    global winner, Round
+    message = ""
+    for index, answer_client in enumerate(client_answer):
+        if answer_client is None:
+            continue
+        if answer_client:
+            message += message + f"{clients_information[index][0]} is correct!\n"
+            if sum(client_answer) == 1:
+                message += f" {clients_information[index][0]} wins!"
+                winner = clients_information[index][0]
+        else:
+            message += message + f"{clients_information[index][0]} is incorrect!\n"
+    Round += 1
+    print(message)
+
+    for index, client_info in enumerate(clients_information):
+        if threads_per_client[index] is not None:
+            client_info[1].sendall(message.encode('utf-8'))
+
+    if sum(client_answer) == 0:
+        return None
+
+    for index, answer_client in enumerate(client_answer):
+        if not answer_client:
+            threads_per_client[index] = None
+            client_answer[index] = None
 
 
 def start_game():
@@ -176,19 +252,32 @@ def start_game():
 
     send_welcome_message()
 
-    while True:
-        # Choose random question
-        random_question = random.choice(trivia_questions)
-        question_text = random_question["question"]
-        question_message = f"True or false: {question_text}\n"
-        # Delete the chosen question from the list
-        trivia_questions.remove(random_question)
+    while sum(client_answer) != 1:
+        question, answer = choose_question()
+        for index, client_info in enumerate(clients_information):
+            if threads_per_client[index] is not None:
+                threads_per_client[index] = threading.Thread(target=handler_question_per_client,
+                                                             args=(client_info, question, answer, index), daemon=True)
+                threads_per_client[index].start()
 
-        # client_info[1].sendall(question_message.encode())
+        # Wait for all threads to finish their execution
+        for thread in threads_per_client:
+            if thread is not None:
+                thread.join()
 
-    # StopOffer = False
-    # StopListen = False
+        calculate_round_score()
+
+    message = f"Game over!\nCongratulations to the winner: {winner}"
+    for client_info in clients_information:
+        client_info[1].sendall(message.encode('utf-8'))
+        client_info[1].close()
+
+    print("Game over, sending out offer requests...")
+
+    StopOffer = False
+    StopListen = False
 
 
 if __name__ == "__main__":
-    server()
+    while True:
+        server()
