@@ -160,24 +160,21 @@ def craft_offer_packet(SERVER_PORT):
     return offer_packet
 
 
-def send_welcome_message(client_info):
-    try:
-        # Send the welcome message
+def send_welcome_message():
+    welcome_message = ""
+    for client_info in clients_information:
         welcome_message = f"Welcome, {client_info[0]}! Welcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
         for index, client in enumerate(clients_information):
             welcome_message += f"Player {index}: {client[0]}\n\n\n"
-            print(welcome_message)
 
-    except Exception as e:
-        print(f"Error sending welcome message to {client_info[0]}: {e}")
+    print(welcome_message.split("! ")[1])
 
 
 def start_game():
     global StopOffer, StopListen
     StopOffer, StopListen = True, True
 
-    for client_info in clients_information:
-        send_welcome_message(client_info)
+    send_welcome_message()
 
     while True:
         # Choose random question
@@ -188,7 +185,6 @@ def start_game():
         trivia_questions.remove(random_question)
 
         # client_info[1].sendall(question_message.encode())
-
 
     # StopOffer = False
     # StopListen = False
