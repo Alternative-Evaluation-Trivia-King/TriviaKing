@@ -7,22 +7,33 @@ import threading
 BROADCAST_PORT = 13117
 names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Hannah", "Isaac", "Julia", "Kevin", "Linda",
          "Michael", "Nancy", "Olivia"]
-flagValidInput = False
-flagTimeoutToInput = False
-stop_input_event = threading.Event()
-
+client_UDP = 0
+client_TCP = 0
 
 def client():
-    # Create a UDP socket
-    client_UDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    global client_UDP, client_TCP
 
-    client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    try:
+        # Create a UDP socket
+        client_UDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    # Bind the socket to the Broadcast
-    client_UDP.bind(('0.0.0.0', BROADCAST_PORT))
+        client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-    print("Client started, listening for offer requests...")
+        # Bind the socket to the Broadcast
+        client_UDP.bind(('0.0.0.0', BROADCAST_PORT))
+
+        print("Client started, listening for offer requests...")
+
+    except KeyboardInterrupt:
+        print("Client shutting down...")
+        return
+
+    except OSError as e:
+        print(f"Error creating or binding UDP socket: {e}")
+        if client_UDP is not None:
+            client_UDP.close()
+        return
 
     while True:
         try:
@@ -48,12 +59,19 @@ def client():
             client_TCP.sendall(player_name.encode() + b'\n')
 
             # Start play
-            clientPlay(client_TCP)
+            clientPlay()
             break
 
         except KeyboardInterrupt:
             print("Client shutting down...")
+            if client_TCP is not None:
+                client_TCP.close()
             break
+
+        except OSError as e:
+            print(f"Error creating or binding TCP socket: {e}")
+            if client_TCP is not None:
+                client_TCP.close()
 
     # Close the UDP socket
     client_UDP.close()
@@ -86,22 +104,33 @@ def Answer_The_Question(client_TCP):
             print("Invalid input\n")
 
 
-def clientPlay(client_TCP):
-    message = client_TCP.recv(1024).decode('utf-8')
-    print(message)
+def clientPlay():
+    global client_TCP
+    try:
+        message = client_TCP.recv(1024).decode('utf-8')
+        print(message)
 
-    while True:
-        question = client_TCP.recv(1024).decode('utf-8')
-        print(question)
+        while True:
+            message = client_TCP.recv(1024).decode('utf-8')
+            print(message)
 
-        if "Game over!" in question:
+            if "Game over!" in message:
+                client_TCP.close()
+                break
+
+            Answer_Question_Thread = threading.Thread(target=Answer_The_Question, args=(client_TCP,), daemon=True)
+            Answer_Question_Thread.start()
+
+        print("Server disconnected, listening for offer requests...")
+
+    except ConnectionResetError:
+        print("Connection with server reset by peer.")
+        client_TCP.close()
+
+    except KeyboardInterrupt:
+        print("Client shutting down...")
+        if client_TCP is not None:
             client_TCP.close()
-            break
-
-        a = threading.Thread(target=Answer_The_Question, args=(client_TCP,), daemon=True)
-        a.start()
-
-    print("Server disconnected, listening for offer requests...")
 
 
 if __name__ == "__main__":
