@@ -91,7 +91,7 @@ def ExtractPacketFromServer(data):
     return server_name, server_port, isValid
 
 
-def Answer_The_Question(client_TCP):
+def Answer_The_Question():
 
     while True:
         answer = input("")
@@ -118,7 +118,7 @@ def clientPlay():
                 client_TCP.close()
                 break
 
-            Answer_Question_Thread = threading.Thread(target=Answer_The_Question, args=(client_TCP,), daemon=True)
+            Answer_Question_Thread = threading.Thread(target=Answer_The_Question, daemon=True)
             Answer_Question_Thread.start()
 
         print("Server disconnected, listening for offer requests...")
