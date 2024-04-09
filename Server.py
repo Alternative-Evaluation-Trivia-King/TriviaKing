@@ -3,6 +3,7 @@ import socket
 import time
 import threading
 import random
+import copy
 
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
@@ -12,7 +13,6 @@ clients_information = []
 client_answer = []
 threads_per_client = []
 StopOffer, StopListen = False, False
-correct_answer = None
 winner = ""
 Round = 1
 
@@ -48,6 +48,8 @@ trivia_questions = [
     {"question": "Skopje is the capital city of Macedonia.", "is_true": True},
     {"question": "Podgorica is the capital city of Montenegro.", "is_true": True},
 ]
+
+copy_questions = copy.deepcopy(trivia_questions)
 
 
 def get_ip_address():
@@ -133,6 +135,8 @@ def send_offer_announcements(server_socket, SERVER_PORT):
             print("Offer thread shutting down...")
             break
 
+    # server_socket.close()
+
 
 def findFreePort():
     global server_socket
@@ -172,7 +176,7 @@ def send_welcome_message():
     for client_info in clients_information:
         welcome_message = f"Welcome, {client_info[0]}! Welcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
         for index, client in enumerate(clients_information):
-            welcome_message += f"Player {index}: {client[0]}\n\n\n"
+            welcome_message += f"Player {index}: {client[0]}\n\n"
 
     for client_info in clients_information:
         client_info[1].sendall(welcome_message.encode('utf-8'))
@@ -181,11 +185,10 @@ def send_welcome_message():
 
 
 def handler_question_per_client(client_info, question, answer, index):
-    global correct_answer
     client_info[1].sendall(question.encode('utf-8'))
     client_info[1].settimeout(10)  # Set a timeout of 10 seconds
     try:
-        player_answer = client_info.recv(1024).decode()
+        player_answer = client_info[1].recv(1024).decode()
         # Check if the player's answer is correct
         if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
             client_answer[index] = True
@@ -197,14 +200,17 @@ def handler_question_per_client(client_info, question, answer, index):
 
 
 def choose_question():
+    global copy_questions
     question_message = ""
     # Choose random question
-    random_question = random.choice(trivia_questions)
+    random_question = random.choice(copy_questions)
     question_text = random_question["question"]
-    answer_text = random_question["answer"]
+    answer_text = random_question["is_true"]
+
+    print(question_text)
 
     # Delete the chosen question from the list
-    trivia_questions.remove(random_question)
+    copy_questions.remove(random_question)
 
     if Round >= 2:
         question_message = f"Round {Round}, played by"
@@ -224,12 +230,12 @@ def calculate_round_score():
         if answer_client is None:
             continue
         if answer_client:
-            message += message + f"{clients_information[index][0]} is correct!\n"
+            message += f"\n{clients_information[index][0]} is correct!"
             if sum(client_answer) == 1:
-                message += f" {clients_information[index][0]} wins!"
+                message += f" {clients_information[index][0]} wins!\n"
                 winner = clients_information[index][0]
         else:
-            message += message + f"{clients_information[index][0]} is incorrect!\n"
+            message += f"\n{clients_information[index][0]} is incorrect!"
     Round += 1
     print(message)
 
@@ -245,9 +251,18 @@ def calculate_round_score():
             threads_per_client[index] = None
             client_answer[index] = None
 
+def reset_game():
+    global StopOffer, Round, StopListen, clients_information, client_answer, threads_per_client, copy_questions, timer_thread, SERVER_IP, server_socket
+    clients_information = []
+    client_answer = []
+    threads_per_client = []
+    Round = 1
+    copy_questions = copy.deepcopy(trivia_questions)
+    timer_thread = None
+    server_socket, SERVER_IP = None, None
 
 def start_game():
-    global StopOffer, StopListen
+    global StopOffer, StopListen, clients_information, client_answer, threads_per_client, Round
     StopOffer, StopListen = True, True
 
     send_welcome_message()
@@ -274,10 +289,13 @@ def start_game():
 
     print("Game over, sending out offer requests...")
 
-    StopOffer = False
-    StopListen = False
+    reset_game()
+
 
 
 if __name__ == "__main__":
     while True:
         server()
+        StopOffer = False
+        StopListen = False
+        print("hi")
