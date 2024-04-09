@@ -1,7 +1,6 @@
 import random
 import socket
-import time
-import keyboard
+import threading
 
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
@@ -10,6 +9,7 @@ names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Hannah",
          "Michael", "Nancy", "Olivia"]
 flagValidInput = False
 flagTimeoutToInput = False
+stop_input_event = threading.Event()
 
 
 def client():
@@ -49,6 +49,7 @@ def client():
 
             # Start play
             clientPlay(client_TCP)
+            break
 
         except KeyboardInterrupt:
             print("Client shutting down...")
@@ -72,41 +73,37 @@ def ExtractPacketFromServer(data):
     return server_name, server_port, isValid
 
 
-def clientPlay(client_TCP):
-    global flagValidInput, flagTimeoutToInput
+def Answer_The_Question(client_TCP):
 
-    def on_key_press(event):
-        global flagValidInput
-        if event.name in ['Y', 'T', '1', 'N', 'F', '0']:
-            # Send the user's choice to the server
-            client_TCP.sendall(event.name.encode())
-            flagValidInput = True
+    while True:
+        answer = input("")
+
+        if answer in ['Y', 'T', '1', 'N', 'F', '0']:
+            client_TCP.sendall(answer.encode())
+            break
 
         else:
-            print("Invalid input")
+            print("Invalid input\n")
 
+
+def clientPlay(client_TCP):
     message = client_TCP.recv(1024).decode('utf-8')
     print(message)
-    # Register the key press listener
-    keyboard.on_press(on_key_press)
+
     while True:
-        timeToEnterInput = 10
         question = client_TCP.recv(1024).decode('utf-8')
         print(question)
 
         if "Game over!" in question:
+            client_TCP.close()
             break
 
-        # Block the main thread to keep listening for key presses
-        while not flagTimeoutToInput and not flagValidInput:
-            startTime = time.time()
-            keyboard.wait(timeToEnterInput)
-            timeToEnterInput = timeToEnterInput - (time.time() - startTime)
-            if timeToEnterInput <= 0:
-                flagTimeoutToInput = False
+        a = threading.Thread(target=Answer_The_Question, args=(client_TCP,), daemon=True)
+        a.start()
 
     print("Server disconnected, listening for offer requests...")
 
 
 if __name__ == "__main__":
-    client()
+    while True:
+        client()
