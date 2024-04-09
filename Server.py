@@ -192,7 +192,7 @@ def send_welcome_message():
         for client_info in clients_information:
             welcome_message = f"Welcome, {client_info[0]}! Welcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
             for index, client in enumerate(clients_information):
-                welcome_message += f"Player {index}: {client[0]}\n\n"
+                welcome_message += f"Player {index+1}: {client[0]}\n\n"
 
         for client_info in clients_information:
             client_info[1].sendall(welcome_message.encode('utf-8'))
@@ -240,9 +240,9 @@ def choose_question():
     if Round >= 2:
         question_message = f"Round {Round}, played by"
         for index, answer_client in enumerate(client_answer):
-            if answer_client is None:
+            if answer_client is not None:
                 question_message += f" {clients_information[index][0]} and"
-        question_message = question_message[:-3] + "\n"
+        question_message = question_message + "\n"
 
     question_message += f"True or false: {question_text}\n"
     return question_message, answer_text
