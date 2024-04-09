@@ -140,7 +140,6 @@ def listen_for_clients(SERVER_PORT):
         print(f"OS error occurred: {e}")
 
 
-
 def save_user(client_socket):
     global timer_thread
     # Receive player name from client
@@ -290,6 +289,7 @@ def reset_game():
     copy_questions = copy.deepcopy(trivia_questions)
     Server_TCP.close()
     timer_thread, SERVER_IP, Server_TCP = 0, 0, 0
+
 
 def start_game():
     global StopOffer, StopListen, clients_information, client_answer, threads_per_client, Round, winner
