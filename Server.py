@@ -261,7 +261,7 @@ def choose_question():
     if Round >= 2:
         question_message = f"Round {Round}, played by"
         for index, answer_client in enumerate(client_answer):
-            if answer_client is not None:
+            if answer_client != -1 and not answer_client:
                 question_message += f" {clients_information[index][0]} and"
         question_message = question_message[:-3] + "\n"
 
@@ -269,16 +269,30 @@ def choose_question():
     return question_message, answer_text
 
 
+def checkStatusGame():
+    wrongAns, correctAns = 0, 0
+    for ans in client_answer:
+        if ans == -1:
+            continue
+        if ans:
+            correctAns += 1
+    return correctAns
+
+
 def calculate_round_score():
     global winner, Round
     message = ""
     try:
         for index, answer_client in enumerate(client_answer):
-            if answer_client is None:
+            if answer_client == -1:
                 continue
-            if answer_client:
+
+            elif clients_information[index][1] is None and not answer_client:
+                message += f"\n{clients_information[index][0]} is left!"
+
+            elif answer_client:
                 message += f"\n{clients_information[index][0]} is correct!"
-                if sum(client_answer) == 1:
+                if checkStatusGame() == 1:
                     message += f" {clients_information[index][0]} wins!\n"
                     winner = clients_information[index][0]
             else:
@@ -289,6 +303,7 @@ def calculate_round_score():
         for index, client_info in enumerate(clients_information):
             if client_info[1] is None:
                 client_info[2] = None
+                client_answer[index] = -1
                 continue
 
             if client_info[2] is not None:
@@ -297,15 +312,15 @@ def calculate_round_score():
                 except OSError:
                     client_info[1] = None
                     client_info[2] = None
-                    client_answer[index] = None
+                    client_answer[index] = -1
 
-        if sum(client_answer) == 0:
+        if checkStatusGame() == 0:
             return None
 
         for index, answer_client in enumerate(client_answer):
             if not answer_client:
                 clients_information[index][2] = None
-                client_answer[index] = None
+                client_answer[index] = -1
 
     except OSError as e:
         print(f"Error occurred in calculate_round_score: {e}")
@@ -346,13 +361,15 @@ def start_game():
             reset_game()
             return
 
-        while sum(client_answer) != 1:
+        while checkStatusGame() != 1:
+            if all(socket[1] is None for socket in clients_information):
+                break
             question, answer = choose_question()
             for index, client_info in enumerate(clients_information):
                 if client_info[2] is not None:
                     client_info[2] = threading.Thread(target=handler_question_per_client,
-                                                     args=(client_info, question, answer, index),
-                                                     daemon=True)
+                                                      args=(client_info, question, answer, index),
+                                                      daemon=True)
                     client_info[2].start()
 
             # Wait for all threads to finish their execution
@@ -364,10 +381,11 @@ def start_game():
 
         message = f"Game over!\nCongratulations to the winner: {winner}"
         for client_info in clients_information:
-            client_info[1].sendall(message.encode('utf-8'))
-            client_info[1].close()
+            if client_info[1] is not None:
+                client_info[1].sendall(message.encode('utf-8'))
+                client_info[1].close()
 
-        #plot_graph()
+        # plot_graph()
         print("Game over, sending out offer requests...")
 
         reset_game()

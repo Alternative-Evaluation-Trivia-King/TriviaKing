@@ -94,14 +94,18 @@ class Client:
     whose entire function is to handle the client's answer to the server's question,
     and send the final answer to the server.
     '''
+
     def Answer_The_Question(self):
         while True:
-            answer = input("")
-            if answer in ['Y', 'T', '1', 'N', 'F', '0']:
-                self.client_TCP.sendall(answer.encode())
-                break
-            else:
-                print("Invalid input\n")
+            try:
+                answer = input("")
+                if answer in ['Y', 'T', '1', 'N', 'F', '0']:
+                    self.client_TCP.sendall(answer.encode())
+                    break
+                else:
+                    print("Invalid input\n")
+            except UnicodeDecodeError:
+                print("Error: Unable to decode input. Please try again with valid characters.")
 
     '''
     This method represents the game of the client against the server.
