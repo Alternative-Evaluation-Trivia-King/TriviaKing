@@ -127,7 +127,7 @@ class Client:
                 Answer_Question_Thread = threading.Thread(target=self.Answer_The_Question, daemon=True)
                 Answer_Question_Thread.start()
 
-            print("Server disconnected, listening for offer requests...")
+            print("\nServer disconnected, listening for offer requests...\n")
 
         except ConnectionResetError:
             print("Connection with server reset by peer.")
