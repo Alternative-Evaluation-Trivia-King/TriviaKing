@@ -11,9 +11,10 @@ import matplotlib.pyplot as plt
 BROADCAST_PORT = 13117
 SERVER_IP, Server_UDP, Server_TCP = 0, 0, 0
 StopOffer = False
-clients_information = []
+clients_information, client_answer = [], []
 winner = ""
 Round = 1
+countBot = 0
 
 trivia_questions = [
     {"question": "Paris is the capital city of France.", "is_true": True},
@@ -135,10 +136,17 @@ def listen_for_clients(SERVER_PORT):
 
 
 def save_user(client_socket):
+    global countBot
     # Receive player name from client
     try:
         player_name = client_socket.recv(1024).decode().strip()
-        clients_information.append((player_name, client_socket, False, 0, 0))
+
+        if player_name == "BOT":
+            countBot += 1
+            player_name = f"Bot{countBot}"
+            client_socket.sendall(player_name.encode('utf-8'))
+
+        clients_information.append([player_name, client_socket, 0, 0])
 
     except OSError as e:
         print(f"Error with client socket: {e}")
@@ -180,10 +188,10 @@ def craft_offer_packet(SERVER_PORT):
 def send_welcome_message():
     global clients_information
     new_clients_information = []
-    welcome_message = "Welcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
+    welcome_message = "\nWelcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
 
     for index, client_info in enumerate(clients_information):
-        welcome_message += f"Player {index+1}: {client_info[0]}\n\n"
+        welcome_message += f"Player {index + 1}: {client_info[0]}\n"
 
     for client_info in clients_information:
         try:
@@ -192,11 +200,13 @@ def send_welcome_message():
             continue
 
         new_clients_information.append(client_info)
+        client_answer.append(False)
 
     clients_information = new_clients_information
 
     if (len(new_clients_information)) > 0:
         print(welcome_message)
+        return True
     else:
         return False
 
@@ -205,22 +215,29 @@ def handler_question_per_client(client_info, question, answer, index):
     try:
         client_info[1].sendall(question.encode('utf-8'))
         client_info[1].settimeout(10)  # Set a timeout of 10 seconds
+    except OSError:
+        client_info[1].close()
+        client_info[1] = None
+        client_answer[index] = False
+        return
 
-        try:
-            player_answer = client_info[1].recv(1024).decode()
-            # Check if the player's answer is correct
-            if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
-                client_answer[index] = True
-                client_info[4] += 1
-            else:
-                client_answer[index] = False
-
-        except socket.timeout:
+    try:
+        player_answer = client_info[1].recv(1024).decode()
+        # Check if the player's answer is correct
+        if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
+            client_answer[index] = True
+            client_info[3] += 1
+        else:
             client_answer[index] = False
 
-    except OSError as e:
-        print(f"Error occurred in handler_question_per_client: {e}")
-        # Handle the error as needed, e.g., log it, close the connection, etc.
+    except socket.timeout:
+        client_answer[index] = False
+
+    except ConnectionResetError:
+        print("Connection with Client reset by peer.")
+        client_info[1].close()
+        client_info[1] = None
+        client_answer[index] = False
 
 
 def choose_question():
@@ -264,15 +281,24 @@ def calculate_round_score():
         print(message)
 
         for index, client_info in enumerate(clients_information):
-            if threads_per_client[index] is not None:
-                client_info[1].sendall(message.encode('utf-8'))
+            if client_info[1] is None:
+                client_info[2] = None
+                continue
+
+            if client_info[2] is not None:
+                try:
+                    client_info[1].sendall(message.encode('utf-8'))
+                except OSError:
+                    client_info[1] = None
+                    client_info[2] = None
+                    client_answer[index] = None
 
         if sum(client_answer) == 0:
             return None
 
         for index, answer_client in enumerate(client_answer):
             if not answer_client:
-                threads_per_client[index] = None
+                clients_information[index][2] = None
                 client_answer[index] = None
 
     except OSError as e:
@@ -281,8 +307,8 @@ def calculate_round_score():
 
 
 def reset_game():
-    global Server_TCP, StopOffer, Round, clients_information, copy_questions, SERVER_IP, Server_UDP
-    clients_information = []
+    global Server_TCP, StopOffer, Round, clients_information, copy_questions, SERVER_IP, Server_UDP, client_answer
+    clients_information, client_answer = [], []
     Round = 1
     copy_questions = copy.deepcopy(trivia_questions)
     Server_TCP.close()
@@ -317,16 +343,16 @@ def start_game():
         while sum(client_answer) != 1:
             question, answer = choose_question()
             for index, client_info in enumerate(clients_information):
-                if threads_per_client[index] is not None:
-                    threads_per_client[index] = threading.Thread(target=handler_question_per_client,
-                                                                 args=(client_info, question, answer, index),
-                                                                 daemon=True)
-                    threads_per_client[index].start()
+                if client_info[2] is not None:
+                    client_info[2] = threading.Thread(target=handler_question_per_client,
+                                                     args=(client_info, question, answer, index),
+                                                     daemon=True)
+                    client_info[2].start()
 
             # Wait for all threads to finish their execution
-            for thread in threads_per_client:
-                if thread is not None:
-                    thread.join()
+            for client_info in clients_information:
+                if client_info[2] is not None:
+                    client_info[2].join()
 
             calculate_round_score()
 
@@ -335,7 +361,7 @@ def start_game():
             client_info[1].sendall(message.encode('utf-8'))
             client_info[1].close()
 
-        plot_graph()
+        #plot_graph()
         print("Game over, sending out offer requests...")
 
         reset_game()
