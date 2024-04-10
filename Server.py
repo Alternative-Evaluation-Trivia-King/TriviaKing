@@ -6,7 +6,6 @@ import random
 import copy
 import matplotlib.pyplot as plt
 
-
 class Server:
     def __init__(self):
         self.BROADCAST_PORT = 13117
@@ -180,7 +179,7 @@ class Server:
 
     def send_welcome_message(self):
         new_clients_information = []
-        welcome_message = "\nWelcome to MyServer server, where we are answering trivia questions about capitals cities in europe."
+        welcome_message = "\nWelcome to the Trivia King Server, where we are answering trivia questions about capitals cities in europe."
         for client_info in self.clients_information:
             try:
                 client_info[1].sendall(welcome_message.encode('utf-8'))
@@ -190,14 +189,14 @@ class Server:
             new_clients_information.append(client_info)
             self.client_answer.append(False)
 
-        print(welcome_message)
+        print(welcome_message[:-1])
 
         self.clients_information = new_clients_information
         Show_Players = ""
         for index, client_info in enumerate(self.clients_information):
             curr = f"Player {index + 1}: {client_info[0]}\n"
             Show_Players += curr
-            self.print_with_color(curr, client_info[4])
+            self.print_with_color(curr[:-1], client_info[4])
 
         for client_info in self.clients_information:
             try:
@@ -218,7 +217,16 @@ class Server:
             return
 
         try:
-            player_answer = client_info[1].recv(1024).decode()
+            while True:
+                player_answer = client_info[1].recv(1024).decode()
+                if player_answer in ['Y', 'T', '1', 'N', 'F', '0']:
+                    break
+                else:
+                    client_info[1].sendall("Invalid input".encode('utf-8'))
+                time = time.time() - time
+
+
+
             # Check if the player's answer is correct
             if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
                 self.client_answer[index] = True
@@ -236,7 +244,7 @@ class Server:
             self.client_answer[index] = False
 
     def choose_question(self):
-        question_message = ""
+        question_message = "\n"
         nextRoundClient = ""
         # Choose random question
         random_question = random.choice(self.copy_questions)
@@ -247,16 +255,16 @@ class Server:
         self.copy_questions.remove(random_question)
 
         if self.Round >= 2:
-            nextRoundClient = f"Round {self.Round}, played by"
+            nextRoundClient = f"\nRound {self.Round}, played by"
             for index, answer_client in enumerate(self.client_answer):
                 if answer_client != -1 and not answer_client:
                     nextRoundClient += f" {self.clients_information[index][0]} and"
-            nextRoundClient = nextRoundClient[:-3] + "\n"
+            nextRoundClient = nextRoundClient[:-3] + ":"
 
-        question_message += f"True or false: {question_text}\n"
+        question_message += f"True or false: {question_text}"
 
         print(nextRoundClient)
-        self.print_with_color(f"\033[1m{question_message}\033[0m", '\033[35m')
+        self.print_with_color(f"\033[1m{question_message[1:]}\033[0m", '\033[35m')
 
         return (nextRoundClient + question_message), answer_text
 
@@ -277,26 +285,26 @@ class Server:
                     continue
 
                 elif self.clients_information[index][1] is None and not answer_client:
-                    cur = f"\n{self.clients_information[index][0]} is left!"
+                    cur = f"{self.clients_information[index][0]} is left!\n"
                     message += cur
-                    self.print_with_color(cur, self.clients_information[index][4])
+                    self.print_with_color(cur[:-1], self.clients_information[index][4])
 
                 elif answer_client:
-                    cur = f"\n{self.clients_information[index][0]} is correct!"
+                    cur = f"{self.clients_information[index][0]} is correct!\n"
                     message += cur
 
-                    self.print_with_color(cur, self.clients_information[index][4])
-
                     if self.checkStatusGame() == 1:
-                        cur2 = f" {self.clients_information[index][0]} wins!"
-                        message += cur2
+                        cur2 = f"{self.clients_information[index][0]} wins!\n"
+                        message = message[:-1] + " " + cur2
                         self.winner = self.clients_information[index][0]
 
-                        self.print_with_color(cur2, self.clients_information[index][4])
+                        cur = cur[:-1] + " " + cur2
+
+                    self.print_with_color(cur[:-1], self.clients_information[index][4])
                 else:
-                    cur = f"\n{self.clients_information[index][0]} is incorrect!"
-                    message += f"\n{self.clients_information[index][0]} is incorrect!"
-                    self.print_with_color(cur, self.clients_information[index][4])
+                    cur = f"{self.clients_information[index][0]} is incorrect!\n"
+                    message += f"{self.clients_information[index][0]} is incorrect!\n"
+                    self.print_with_color(cur[:-1], self.clients_information[index][4])
 
             self.Round += 1
 
@@ -373,14 +381,14 @@ class Server:
 
                 self.calculate_round_score()
 
-            message = f"Game over!\nCongratulations to the winner: {self.winner}"
+            message = f"\nGame over!\nCongratulations to the winner: {self.winner}"
             for client_info in self.clients_information:
                 if client_info[1] is not None:
                     client_info[1].sendall(message.encode('utf-8'))
                     client_info[1].close()
 
             # plot_graph()
-            print("Game over, sending out offer requests...")
+            print("\nGame over, sending out offer requests...\n")
 
             self.reset_game()
 

@@ -1,6 +1,7 @@
 import random
 import socket
 import threading
+import time
 
 '''----------------------------------------- Global variable --------------------------------------------------'''
 
@@ -128,6 +129,8 @@ class Client:
                 Answer_Question_Thread.start()
 
             print("Server disconnected, listening for offer requests...")
+
+
 
         except ConnectionResetError:
             print("Connection with server reset by peer.")
