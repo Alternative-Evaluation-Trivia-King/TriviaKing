@@ -99,11 +99,13 @@ class Client:
         while True:
             try:
                 answer = input("")
-                if answer in ['Y', 'T', '1', 'N', 'F', '0']:
-                    self.client_TCP.sendall(answer.encode())
-                    break
-                else:
-                    print("Invalid input\n")
+                self.client_TCP.sendall(answer.encode())
+
+                # if answer in ['Y', 'T', '1', 'N', 'F', '0']:
+                #     self.client_TCP.sendall(answer.encode())
+                #     break
+                # else:
+                #     print("Invalid input\n")
             except UnicodeDecodeError:
                 print("Error: Unable to decode input. Please try again with valid characters.")
 
