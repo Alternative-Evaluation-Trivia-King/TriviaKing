@@ -23,17 +23,13 @@ class Client:
     This method represents the entire beginning of the client's interaction with the server.
     From the moment it creates a UDP connection, a TCP connection to the moment it plays.
     '''
+
     def startClient(self):
         try:
-            # Create a UDP socket
             self.client_UDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
             self.client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-            # Bind the socket to the Broadcast
             self.client_UDP.bind(('0.0.0.0', self.BROADCAST_PORT))
-
             print("Client started, listening for offer requests...")
 
         except OSError as e:
@@ -44,29 +40,19 @@ class Client:
 
         while True:
             try:
-                # Receives data from the server over the UDP socket and stores the received data
                 data, server_address = self.client_UDP.recvfrom(1024)
-
-                # Extract packet from server
                 server_name, server_port, isValid = self.ExtractPacketFromServer(data)
                 if not isValid:
                     continue
 
                 print(
                     f"Received offer from server {server_name} at address {server_address[0]}, attempting to connect...")
-
-                # Connect to the server over TCP
                 self.client_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # Establishes a connection for client sockets to a remote server.
                 self.client_TCP.connect((server_address[0], server_port))
                 print("Connected to server over TCP.")
-
-                # Choose a name randomly
                 player_name = random.choice(self.names)
-                # Send the name to the server
                 self.client_TCP.sendall(player_name.encode() + b'\n')
 
-                # Start play
                 self.clientPlay()
                 break
 
@@ -75,8 +61,16 @@ class Client:
                 if self.client_TCP is not None:
                     self.client_TCP.close()
 
-        # Close the UDP socket
-        self.client_UDP.close()
+            except KeyboardInterrupt:
+                print("Force quit detected. Closing connections...")
+                if self.client_TCP:
+                    self.client_TCP.close()
+                if self.client_UDP:
+                    self.client_UDP.close()
+                break
+
+        if self.client_UDP:
+            self.client_UDP.close()
 
     '''
     The function of this method is to extract the data from the packet
