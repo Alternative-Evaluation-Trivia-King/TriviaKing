@@ -24,7 +24,6 @@ class Client:
     This method represents the entire beginning of the client's interaction with the server.
     From the moment it creates a UDP connection, a TCP connection to the moment it plays.
     '''
-
     def startClient(self):
         try:
             self.client_UDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -46,8 +45,7 @@ class Client:
                 if not isValid:
                     continue
 
-                print(
-                    f"Received offer from server {server_name} at address {server_address[0]}, attempting to connect...")
+                print(f"Received offer from server {server_name} at address {server_address[0]}, attempting to connect...")
                 self.client_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.client_TCP.connect((server_address[0], server_port))
                 print("Connected to server over TCP.")
@@ -102,11 +100,6 @@ class Client:
                 answer = input("")
                 self.client_TCP.sendall(answer.encode())
 
-                # if answer in ['Y', 'T', '1', 'N', 'F', '0']:
-                #     self.client_TCP.sendall(answer.encode())
-                #     break
-                # else:
-                #     print("Invalid input\n")
             except UnicodeDecodeError:
                 print("Error: Unable to decode input. Please try again with valid characters.")
 

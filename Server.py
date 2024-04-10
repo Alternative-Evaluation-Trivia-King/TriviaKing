@@ -4,7 +4,7 @@ import time
 import threading
 import random
 import copy
-import matplotlib.pyplot as plt
+from tabulate import tabulate
 
 class Server:
     def __init__(self):
@@ -99,7 +99,7 @@ class Server:
         print("Server started, listening on IP address", self.SERVER_IP)
 
         # Create a thread for sending offer announcements
-        threading.Thread(target=self.send_offer_announcements, args=(self.Server_UDP, SERVER_PORT), daemon=True).start()
+        threading.Thread(target=self.send_offer_announcements, args=(SERVER_PORT, ), daemon=True).start()
 
         # Listen for client names
         while len(self.clients_information) == 0:
@@ -150,12 +150,12 @@ class Server:
         except OSError as e:
             self.print_with_color(f"Error with client socket: {e}")
 
-    def send_offer_announcements(self, server_socket, SERVER_PORT):
+    def send_offer_announcements(self, SERVER_PORT):
         while not self.StopOffer:
             try:
                 # Craft and send the offer announcement packet
                 offer_packet = self.craft_offer_packet(SERVER_PORT)
-                server_socket.sendto(offer_packet, ('<broadcast>', self.BROADCAST_PORT))
+                self.Server_UDP.sendto(offer_packet, ('<broadcast>', self.BROADCAST_PORT))
                 print("Offer announcement sent")
 
                 # Sleep for 1 second before sending the next offer
@@ -165,7 +165,7 @@ class Server:
                 self.print_with_color(f"An OS error occurred in the offer thread: {e}")
                 # Handle the OS error as needed, e.g., log it, attempt recovery, etc.
 
-        # server_socket.close()
+        # self.Server_UDP.close()
 
     # Craft the offer announcement packet
     def craft_offer_packet(self, SERVER_PORT):
@@ -188,8 +188,8 @@ class Server:
 
             new_clients_information.append(client_info)
             self.client_answer.append(False)
-
-        print(welcome_message[:-1])
+        if len(new_clients_information) > 0:
+            print(welcome_message[:-1])
 
         self.clients_information = new_clients_information
         Show_Players = ""
@@ -285,12 +285,26 @@ class Server:
                 if answer_client == -1:
                     continue
 
-                elif self.clients_information[index][1] is None and not answer_client:
+                if self.clients_information[index][1] is None and not answer_client:
                     cur = f"{self.clients_information[index][0]} is left!\n"
                     message += cur
                     self.print_with_color(cur[:-1], self.clients_information[index][4])
+                    continue
 
-                elif answer_client:
+                try:
+                    self.clients_information[index][1].sendall("".encode('utf-8'))
+                except OSError:
+                    self.clients_information[index][1] = None
+                    self.clients_information[index][2] = None
+                    if answer_client:
+                        self.clients_information[index][3] -= 1
+                    self.client_answer[index] = -1
+                    cur = f"{self.clients_information[index][0]} is left!\n"
+                    message += cur
+                    self.print_with_color(cur[:-1], self.clients_information[index][4])
+                    continue
+
+                if answer_client:
                     cur = f"{self.clients_information[index][0]} is correct!\n"
                     message += cur
 
@@ -343,18 +357,14 @@ class Server:
         self.SERVER_IP, self.Server_TCP = 0, 0
         self.StopOffer = False
 
-    def plot_graph(self):
+    def plot_table(self):
+        print("\n")
         # Create bar graph
-        names = [client[0] for client in self.clients_information]
-        plt.bar(names)
+        score_table = [["Clients", "Score"]]
+        for client in self.clients_information:
+            score_table.append([client[0], client[3]])
 
-        # Add labels and title
-        plt.xlabel('Client')
-        plt.ylabel('Score')
-        plt.title('Bar Graph Example')
-
-        # Show plot
-        plt.show()
+        print(tabulate(score_table, headers="firstrow"))
 
     def start_game(self):
         try:
@@ -388,7 +398,7 @@ class Server:
                     client_info[1].sendall(message.encode('utf-8'))
                     client_info[1].close()
 
-            # plot_graph()
+            self.plot_table()
             print("\nGame over, sending out offer requests...\n")
 
             self.reset_game()
