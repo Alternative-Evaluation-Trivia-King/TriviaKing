@@ -1,6 +1,8 @@
 import random
 from Client import Client
 from collections import Counter
+import threading
+import socket
 
 
 class Bot(Client):
@@ -13,7 +15,7 @@ class Bot(Client):
         self.messages_counter = 0
         self.bot_name = "" # bot name will given by the server
         self.last_answer = ""
-        self.last_question = {}
+        self.last_question = ""
 
     def Answer_The_Question(self):
         if self.last_question in self.trivia_questions_dic:
@@ -40,8 +42,9 @@ class Bot(Client):
 
             self.trivia_questions_dic[self.last_question] = answer
             self.yes_no_answers_counter[answer] += 1
+        prefix = "True or false: "
+        self.last_question = message.split(prefix, 1)[-1]
 
-        self.last_question = message.split("True or false: ")[1]
 
     def clientPlay(self):
         try:
