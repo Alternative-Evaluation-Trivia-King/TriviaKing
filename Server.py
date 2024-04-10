@@ -57,7 +57,7 @@ class Server:
         return random.choice(color_array)
 
     def print_with_color(self, string, color='\033[31m'):
-        print(color + "This text will be black." + '\033[0m')
+        print(color + string + '\033[0m')
 
     def get_ip_address(self):
         # Create a socket object
@@ -237,24 +237,28 @@ class Server:
 
     def choose_question(self):
         question_message = ""
+        nextRoundClient = ""
         # Choose random question
         random_question = random.choice(self.copy_questions)
         question_text = random_question["question"]
         answer_text = random_question["is_true"]
 
-        self.print_with_color(f"\033[1m{question_text}\033[0m", '\033[35m')
         # Delete the chosen question from the list
         self.copy_questions.remove(random_question)
 
         if self.Round >= 2:
-            question_message = f"Round {self.Round}, played by"
+            nextRoundClient = f"Round {self.Round}, played by"
             for index, answer_client in enumerate(self.client_answer):
                 if answer_client != -1 and not answer_client:
-                    question_message += f" {self.clients_information[index][0]} and"
-            question_message = question_message[:-3] + "\n"
+                    nextRoundClient += f" {self.clients_information[index][0]} and"
+            nextRoundClient = nextRoundClient[:-3] + "\n"
 
         question_message += f"True or false: {question_text}\n"
-        return question_message, answer_text
+
+        print(nextRoundClient)
+        self.print_with_color(f"\033[1m{question_message}\033[0m", '\033[35m')
+
+        return (nextRoundClient + question_message), answer_text
 
     def checkStatusGame(self):
         wrongAns, correctAns = 0, 0
@@ -273,18 +277,28 @@ class Server:
                     continue
 
                 elif self.clients_information[index][1] is None and not answer_client:
-                    self.print_with_color()
-                    message += f"\n{self.clients_information[index][0]} is left!"
+                    cur = f"\n{self.clients_information[index][0]} is left!"
+                    message += cur
+                    self.print_with_color(cur, self.clients_information[index][4])
 
                 elif answer_client:
-                    message += f"\n{self.clients_information[index][0]} is correct!"
+                    cur = f"\n{self.clients_information[index][0]} is correct!"
+                    message += cur
+
+                    self.print_with_color(cur, self.clients_information[index][4])
+
                     if self.checkStatusGame() == 1:
-                        message += f" {self.clients_information[index][0]} wins!"
+                        cur2 = f" {self.clients_information[index][0]} wins!"
+                        message += cur2
                         self.winner = self.clients_information[index][0]
+
+                        self.print_with_color(cur2, self.clients_information[index][4])
                 else:
+                    cur = f"\n{self.clients_information[index][0]} is incorrect!"
                     message += f"\n{self.clients_information[index][0]} is incorrect!"
+                    self.print_with_color(cur, self.clients_information[index][4])
+
             self.Round += 1
-            print(message)
 
             for index, client_info in enumerate(self.clients_information):
                 if client_info[1] is None:
@@ -309,7 +323,7 @@ class Server:
                     self.client_answer[index] = -1
 
         except OSError as e:
-            print(f"Error occurred in calculate_round_score: {e}")
+            self.print_with_color(f"Error occurred in calculate_round_score: {e}")
             # Handle the error as needed, e.g., log it, close the connection, etc.
 
     def reset_game(self):
@@ -371,7 +385,7 @@ class Server:
             self.reset_game()
 
         except OSError as e:
-            print(f"Error occurred in start_game: {e}")
+            self.print_with_color("Error occurred in start_game: {e}")
             # Handle the error as needed, e.g., log it, close the connection, etc.
 
 
