@@ -188,11 +188,7 @@ def craft_offer_packet(SERVER_PORT):
 def send_welcome_message():
     global clients_information
     new_clients_information = []
-    welcome_message = "\nWelcome to MyServer server, where we are answering trivia questions about capitals cities in europe.\n"
-
-    for index, client_info in enumerate(clients_information):
-        welcome_message += f"Player {index + 1}: {client_info[0]}\n"
-
+    welcome_message = "\nWelcome to MyServer server, where we are answering trivia questions about capitals cities in europe."
     for client_info in clients_information:
         try:
             client_info[1].sendall(welcome_message.encode('utf-8'))
@@ -203,9 +199,19 @@ def send_welcome_message():
         client_answer.append(False)
 
     clients_information = new_clients_information
+    Show_Players = ""
+    for index, client_info in enumerate(clients_information):
+        Show_Players += f"Player {index + 1}: {client_info[0]}\n"
+
+    for client_info in clients_information:
+        try:
+            client_info[1].sendall(Show_Players.encode('utf-8'))
+        except OSError:
+            continue
 
     if (len(new_clients_information)) > 0:
         print(welcome_message)
+        print(Show_Players)
         return True
     else:
         return False
