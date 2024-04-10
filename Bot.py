@@ -53,16 +53,14 @@ class Bot(Client):
                 if "Welcome" in message:
                     continue
 
-                elif "Game over!" in message:
-                    self.client_TCP.close()
-                    break
-
-                # elif self.messages_counter == 2:  # The second massage that the server will send to the bot is the bot name
-                #     self.bot_name = message
+                elif self.messages_counter == 1:  # The first massage that the server will send to the bot is the bot name
+                    self.bot_name = message
 
                 else:
                     self.handle_message(message)
-
+                if "Game over!" in message:
+                    self.client_TCP.close()
+                    break
 
                 Answer_Question_Thread = threading.Thread(target=self.Answer_The_Question, daemon=True)
                 Answer_Question_Thread.start()
