@@ -207,8 +207,10 @@ class Server:
         return len(new_clients_information) > 0
 
     def handler_question_per_client(self, client_info, question, answer, index):
+        startTime = 0
         try:
             client_info[1].sendall(question.encode('utf-8'))
+            startTime = time.time()
             client_info[1].settimeout(10)  # Set a timeout of 10 seconds
         except OSError:
             client_info[1].close()
@@ -223,8 +225,7 @@ class Server:
                     break
                 else:
                     client_info[1].sendall("Invalid input".encode('utf-8'))
-                time = time.time() - time
-
+                client_info[1].settimeout(10-(time.time() - startTime))
 
 
             # Check if the player's answer is correct
