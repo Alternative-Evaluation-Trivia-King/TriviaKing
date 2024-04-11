@@ -6,7 +6,31 @@ import random
 import copy
 from tabulate import tabulate
 
+
+"""
+This class represents a server for multiplayer gaming.
+It manages the interaction between multiple clients, handling connections,
+sending offer announcements, managing gameplay, and determining the winner.
+The server provides a centralized platform for clients to connect,
+exchange messages, and participate in multiplayer games.
+"""
 class Server:
+    """
+    Initializes a Server object with the following attributes:
+    - BROADCAST_PORT: The port number used for broadcasting offer announcements.
+    - SERVER_IP: The IP address of the server.
+    - Server_UDP: Represents the UDP socket for sending offer announcements.
+    - Server_TCP: Represents the TCP socket for accepting client connections.
+    - StopOffer: A flag to control the offer announcement thread.
+    - clients_information: A list to store information about connected clients.
+      Each entry contains the client's name, socket, thread, score, and color.
+    - client_answer: A list to store the answers of each client during gameplay.
+    - winner: The name of the winning client.
+    - Round: The current round of the game.
+    - countBot: The count of bot clients connected to the server.
+    - trivia_questions: A list of trivia questions for the game.
+    - copy_questions: A copy of trivia_questions to ensure questions are not repeated.
+    """
     def __init__(self):
         self.BROADCAST_PORT = 13117
         self.SERVER_IP, self.Server_UDP, self.Server_TCP = 0, 0, 0
@@ -43,6 +67,9 @@ class Server:
 
         self.copy_questions = copy.deepcopy(self.trivia_questions)
 
+    """
+    Chooses a random color for printing messages.
+    """
     def choose_Color(self):
         color_array = [
             # '\033[0m',   RESET
@@ -55,9 +82,15 @@ class Server:
 
         return random.choice(color_array)
 
+    """
+    Prints a message with a specified color.
+    """
     def print_with_color(self, string, color='\033[31m'):
         print(color + string + '\033[0m')
 
+    """
+    Gets the IP address of the server.
+    """
     def get_ip_address(self):
         # Create a socket object
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -70,6 +103,9 @@ class Server:
             # Close the socket
             s.close()
 
+    """
+    Finds a free port for the server to listen on.
+    """
     def findFreePort(self):
         self.get_ip_address()
         SERVER_PORT = 5000
