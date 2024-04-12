@@ -32,10 +32,13 @@ class Client:
     '''
     def startClient(self):
         try:
-            # Create and bind a UDP socket for receiving server offers
+            # Create a UDP socket
             self.client_UDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Allow reusing addresses
             self.client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # Enable broadcasting
             self.client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            # Bind the socket to listen on all available interfaces (0.0.0.0)
             self.client_UDP.bind(('0.0.0.0', self.BROADCAST_PORT))
             print("Client started, listening for offer requests...")
 
@@ -48,14 +51,18 @@ class Client:
         # Continuously listen for offer requests and establish TCP connection
         while True:
             try:
+                # Wait to receive data from the UDP socket
                 data, server_address = self.client_UDP.recvfrom(1024)
-                server_name, server_port, isValid = self.ExtractPacketFromServer(data)
-                if not isValid:
+                # Extract server information from the received data
+                server_name, server_port, isRelevantPacket = self.ExtractPacketFromServer(data)
+                # If the received packet is not valid, continue listening
+                if not isRelevantPacket:
                     continue
 
                 print(f"Received offer from server {server_name} at address {server_address[0]}, attempting to connect...")
-                # Connect to the server over TCP
+                # Create a TCP socket for establishing a connection with the server
                 self.client_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # Connect to the server over TCP using its address and port
                 self.client_TCP.connect((server_address[0], server_port))
                 print("Connected to server over TCP.")
 
@@ -76,8 +83,6 @@ class Client:
                 print("Force quit detected. Closing connections...")
                 if self.client_TCP:
                     self.client_TCP.close()
-                if self.client_UDP:
-                    self.client_UDP.close()
                 break
 
         # Close the UDP socket after use
@@ -89,7 +94,7 @@ class Client:
     It parses the packet to retrieve the server's name, port, and validates the packet's integrity.
     '''
     def ExtractPacketFromServer(self, data):
-        isValid = True
+        isRelevantPacket = True
         magic_cookie = int.from_bytes(data[:4], byteorder='big')
         message_type = int.from_bytes(data[4:5], byteorder='big')
         server_name = data[5:37].decode('utf-8').strip('\x00')
@@ -97,9 +102,9 @@ class Client:
 
         if magic_cookie != 0xabcddcba or message_type != 0x2:
             print("The received package does not meet certain criteria")
-            isValid = False
+            isRelevantPacket = False
 
-        return server_name, server_port, isValid
+        return server_name, server_port, isRelevantPacket
 
     '''
     This method handles the client's response to the server's questions during gameplay.
