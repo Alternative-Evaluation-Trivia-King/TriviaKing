@@ -14,8 +14,6 @@ Chooses a random color for printing messages.
 Returns:
     str: ANSI color code.
 """
-
-
 def choose_Color():
     # GREEN, YELLOW, BLUE, CYAN
     color_array = ['\033[32m', '\033[33m', '\033[34m', '\033[36m']
@@ -30,8 +28,6 @@ Parameters:
     message (str): The message to be printed.
     color (str): The ANSI color code. Default is red.
 """
-
-
 def print_with_color(message, color='\033[31m'):
     print(color + message + '\033[0m')
 
@@ -45,15 +41,13 @@ Parameters:
 Returns:
     bytes: The offer packet to be sent.
 """
-
-
 def craft_offer_packet(SERVER_PORT):
     # Magic cookie for identification
     magic_cookie = b'\xab\xcd\xdc\xba'
     # Type of message (0x02 for offer)
     message_type = b'\x02'
     # Server name padded to 32 bytes
-    server_name = "MyServer".ljust(32, '\x00').encode('utf-8')
+    server_name = "TriviaKing".ljust(32, '\x00').encode('utf-8')
     # Server port in network byte order (big-endian)
     server_port = SERVER_PORT.to_bytes(2, byteorder='big')
 
@@ -70,8 +64,6 @@ sending offer announcements, managing gameplay, and determining the winner.
 The server provides a centralized platform for clients to connect,
 exchange messages, and participate in multiplayer games.
 """
-
-
 class Server:
     """
     Initializes a Server object with the following attributes:
@@ -89,7 +81,6 @@ class Server:
     - trivia_questions: A list of trivia questions for the game.
     - copy_questions: A copy of trivia_questions to ensure questions are not repeated.
     """
-
     def __init__(self):
         self.BROADCAST_PORT = 13117
         self.SERVER_IP, self.Server_UDP, self.Server_TCP = 0, 0, 0
@@ -126,10 +117,10 @@ class Server:
 
         self.copy_questions = copy.deepcopy(self.trivia_questions)
 
+
     """
     Gets the IP address of the server.
     """
-
     def get_ip_address(self):
         while True:
             # Create a socket object
@@ -149,13 +140,13 @@ class Server:
                 # Close the socket
                 s.close()
 
+
     """
     Finds a free port for the server to listen on, and create UDP socket with this port.
     
     Returns:
         int: The port number found.
     """
-
     def findFreePort(self):
         # Get the IP address of the server
         self.get_ip_address()
@@ -180,11 +171,11 @@ class Server:
             # Return the port number found
             return SERVER_PORT
 
+
     """
     Starts the server by setting up necessary sockets, broadcasting offer announcements,
     and listening for client connections.
     """
-
     def startServer(self):
         # Find a free port for the server to listen on
         SERVER_PORT = self.findFreePort()
@@ -203,13 +194,13 @@ class Server:
 
         self.start_game()
 
+
     """
     Listens for incoming client connections on the specified server port.
 
     Parameters:
         SERVER_PORT (int): The port on which the server is listening.
     """
-
     def listen_for_clients(self, SERVER_PORT):
         # Create a TCP socket for accepting client connections
         self.Server_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -245,13 +236,13 @@ class Server:
         except OSError as e:
             print_with_color(f"OS error occurred: {e}")
 
+
     """
     Receives the player name from the client and saves the client information.
 
     Args:
         client_socket (socket.socket): The socket object for the client connection.
     """
-
     def save_user(self, client_socket):
         # Receive the player name from the client
         try:
@@ -270,13 +261,13 @@ class Server:
         except OSError as e:
             print_with_color(f"Error with client socket: {e}")
 
+
     """
     Sends offer announcements to clients on the network.
 
     Args:
         SERVER_PORT (int): The port on which the server is listening.
     """
-
     def send_offer_announcements(self, SERVER_PORT):
         while not self.StopOffer:
             try:
@@ -294,34 +285,57 @@ class Server:
 
         # self.Server_UDP.close()
 
-    def send_welcome_message(self):
-        new_clients_information = []
-        welcome_message = "\nWelcome to the Trivia King Server, where we are answering trivia questions about capitals cities in europe."
-        for client_info in self.clients_information:
-            try:
-                client_info[1].sendall(welcome_message.encode('utf-8'))
-            except OSError:
-                continue
-
-            new_clients_information.append(client_info)
-            self.client_answer.append(False)
-        if len(new_clients_information) > 0:
-            print(welcome_message[:-1])
-
-        self.clients_information = new_clients_information
+    def Show_Players(self):
         Show_Players = ""
+        # Loop through each active client
         for index, client_info in enumerate(self.clients_information):
             curr = f"Player {index + 1}: {client_info[0]}\n"
             Show_Players += curr
             print_with_color(curr[:-1], client_info[4])
 
+        # Send the current players to all active clients
         for client_info in self.clients_information:
             try:
+                # Send the current players to the client
                 client_info[1].sendall(Show_Players.encode('utf-8'))
+            # If there's an OSError, continue to the next client
             except OSError:
                 continue
 
-        return len(new_clients_information) > 0
+    """
+    Sends a welcome message to newly connected clients and displays current players.
+
+    Returns:
+        bool: True if there are new clients, False otherwise.
+    """
+    def send_welcome_message(self):
+        # List to store information about active clients.
+        active_clients_information = []
+
+        welcome_message = "\nWelcome to the TriviaKing server, where we are answering trivia questions about capitals cities in europe."
+        # Check who is still active among all those registered for the game
+        for client_info in self.clients_information:
+            try:
+                # Send the welcome message to the client
+                client_info[1].sendall(welcome_message.encode('utf-8'))
+            # If there's an OSError, continue to the next client
+            except OSError:
+                continue
+            # If the message is sent successfully, add the client's information to the list of active clients
+            active_clients_information.append(client_info)
+            # Initialize the client's answer status
+            self.client_answer.append(False)
+
+        # If there are active clients, print the welcome message
+        if len(active_clients_information) > 0:
+            print(welcome_message)
+
+        # Update the list of clients' information to only include the active clients
+        self.clients_information = active_clients_information
+
+        self.Show_Players()
+
+        return len(self.clients_information ) > 0
 
     def handler_question_per_client(self, client_info, question, answer, index):
         startTime = 0
