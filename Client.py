@@ -3,6 +3,33 @@ import socket
 import threading
 
 
+# ------------------------------------------ Helper function ------------------------------------------------
+
+'''
+This function extracts relevant information from the packet received from the server.
+It parses the packet to retrieve the server's name, port, and validates the packet's integrity.
+'''
+def ExtractPacketFromServer(data):
+    isRelevantPacket = True
+    # Extract the magic cookie from the first 4 bytes of the data and convert it to an integer
+    magic_cookie = int.from_bytes(data[:4], byteorder='big')
+    # Extract the message type from the 5th byte of the data and convert it to an integer
+    message_type = int.from_bytes(data[4:5], byteorder='big')
+    # Decode the server name from bytes 6 to 37, remove any null characters, and convert it to a string
+    server_name = data[5:37].decode('utf-8').strip('\x00')
+    # Extract the server port from bytes 38 to 39 and convert it to an integer
+    server_port = int.from_bytes(data[37:39], byteorder='big')
+
+    # Check if the magic cookie and message type meet certain criteria
+    if magic_cookie != 0xabcddcba or message_type != 0x2:
+        print("The received package does not meet certain criteria")
+        isRelevantPacket = False
+
+    return server_name, server_port, isRelevantPacket
+
+
+# ------------------------------------------ Client class ------------------------------------------------
+
 '''
 This class facilitates the interaction of a client with a server for multiplayer gaming purposes.
 It's intended for creating multiple client instances that can connect to a server simultaneously.
@@ -54,7 +81,7 @@ class Client:
                 # Wait to receive data from the UDP socket
                 data, server_address = self.client_UDP.recvfrom(1024)
                 # Extract server information from the received data
-                server_name, server_port, isRelevantPacket = self.ExtractPacketFromServer(data)
+                server_name, server_port, isRelevantPacket = ExtractPacketFromServer(data)
                 # If the received packet is not valid, continue listening
                 if not isRelevantPacket:
                     continue
@@ -79,32 +106,9 @@ class Client:
                 if self.client_TCP is not None:
                     self.client_TCP.close()
 
-            except KeyboardInterrupt:
-                print("Force quit detected. Closing connections...")
-                if self.client_TCP:
-                    self.client_TCP.close()
-                break
-
         # Close the UDP socket after use
         if self.client_UDP:
             self.client_UDP.close()
-
-    '''
-    This method extracts relevant information from the packet received from the server.
-    It parses the packet to retrieve the server's name, port, and validates the packet's integrity.
-    '''
-    def ExtractPacketFromServer(self, data):
-        isRelevantPacket = True
-        magic_cookie = int.from_bytes(data[:4], byteorder='big')
-        message_type = int.from_bytes(data[4:5], byteorder='big')
-        server_name = data[5:37].decode('utf-8').strip('\x00')
-        server_port = int.from_bytes(data[37:39], byteorder='big')
-
-        if magic_cookie != 0xabcddcba or message_type != 0x2:
-            print("The received package does not meet certain criteria")
-            isRelevantPacket = False
-
-        return server_name, server_port, isRelevantPacket
 
     '''
     This method handles the client's response to the server's questions during gameplay.
@@ -113,7 +117,9 @@ class Client:
     def Answer_The_Question(self):
         while True:
             try:
+                # Prompt the client for input
                 answer = input("")
+                # Send the answer to the server
                 self.client_TCP.sendall(answer.encode())
 
             except UnicodeDecodeError:
@@ -128,12 +134,14 @@ class Client:
     def clientPlay(self):
         try:
             while True:
+                # Receive messages from the server
                 message = self.client_TCP.recv(1024).decode('utf-8')
                 print(message)
 
                 if "Welcome" in message:
                     continue
 
+                # Break the loop if the message contains "Game over!"
                 if "Game over!" in message:
                     self.client_TCP.close()
                     break
@@ -144,8 +152,9 @@ class Client:
 
             print("\nServer disconnected, listening for offer requests...\n")
 
+        # Handling the case where the connection with the server crashes
         except ConnectionResetError:
-            print("Connection with server reset by peer.")
+            print("Connection with the server crashed.")
             self.client_TCP.close()
 
 
