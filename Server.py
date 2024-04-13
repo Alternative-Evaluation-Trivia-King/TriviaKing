@@ -285,10 +285,15 @@ class Server:
 
         # self.Server_UDP.close()
 
+
+    """
+    Displays the list of current players to the server console and sends it to all active clients.
+    """
     def Show_Players(self):
         Show_Players = ""
         # Loop through each active client
         for index, client_info in enumerate(self.clients_information):
+            # Construct the string representation of the player
             curr = f"Player {index + 1}: {client_info[0]}\n"
             Show_Players += curr
             print_with_color(curr[:-1], client_info[4])
@@ -337,12 +342,25 @@ class Server:
 
         return len(self.clients_information ) > 0
 
+
+    """
+    Handles the question-answer interaction with each connected client.
+
+    Parameters:
+        client_info (list): Information about the client, including the client socket.
+        question (str): The question to be sent to the client.
+        answer (bool): The correct answer to the question.
+        index (int): The index of the client in the clients_information list.
+    """
     def handler_question_per_client(self, client_info, question, answer, index):
-        startTime = 0
         try:
+            # Send the question to the client
             client_info[1].sendall(question.encode('utf-8'))
+            # Record the start time for timeout calculation
             startTime = time.time()
-            client_info[1].settimeout(10)  # Set a timeout of 10 seconds
+            # Set a timeout of 10 seconds for receiving client response
+            client_info[1].settimeout(10)
+        # If an OSError occurs, close the client socket and mark it as None
         except OSError:
             client_info[1].close()
             client_info[1] = None
@@ -350,54 +368,84 @@ class Server:
             return
 
         try:
+            # Loop until a valid answer is received or timeout occurs
             while True:
+                # Receive the player's answer
                 player_answer = client_info[1].recv(1024).decode()
+                # Check if the received answer is valid
                 if player_answer in ['Y', 'T', '1', 'N', 'F', '0']:
                     break
+                # If the answer is invalid, send a message indicating invalid input
                 else:
                     client_info[1].sendall("Invalid input".encode('utf-8'))
+                # Adjust the timeout based on the time elapsed since the start
                 client_info[1].settimeout(10 - (time.time() - startTime))
 
-            # Check if the player's answer is correct
+            # If the answer is correct, mark the client's answer as True and update correct answer count
             if (player_answer in ['Y', 'T', '1'] and answer) or (player_answer in ['N', 'F', '0'] and not answer):
                 self.client_answer[index] = True
                 client_info[3] += 1
+            # If the answer is incorrect, mark the client's answer as False
             else:
                 self.client_answer[index] = False
 
+        # If a timeout occurs, mark the client's answer as False
         except socket.timeout:
             self.client_answer[index] = False
 
+        # If a ConnectionResetError occurs, print a message and close the client socket
         except ConnectionResetError:
-            print_with_color("Connection with Client reset by peer.")
+            print_with_color("Connection with the client crashed.")
             client_info[1].close()
             client_info[1] = None
             self.client_answer[index] = False
 
+    """
+    Calculates the clients who will participate in the next round.
+
+    Returns:
+        str: A formatted string indicating the clients participating in the next round.
+    """
+    def calculateNextRoundClients(self):
+        # Prepare message for the next round
+        nextRoundClient = f"\nRound {self.Round}, played by"
+        for index, answer_client in enumerate(self.client_answer):
+            # Check if the client continues to the next round
+            if answer_client != -1 and not answer_client:
+                nextRoundClient += f" {self.clients_information[index][0]} and"
+        return nextRoundClient[:-4] + ":"
+
+    """
+    Chooses a random question from the available pool and prepares it for presentation to the players.
+
+    Returns:
+        tuple: A tuple containing the message for the next round 
+        with the text of the chosen question and correct answer.
+    """
     def choose_question(self):
-        question_message = "\n"
         nextRoundClient = ""
+
         # Choose random question
         random_question = random.choice(self.copy_questions)
         question_text = random_question["question"]
-        answer_text = random_question["is_true"]
+        correct_answer = random_question["is_true"]
 
-        # Delete the chosen question from the list
+        # Remove the chosen question from the list
         self.copy_questions.remove(random_question)
 
+        # Check if it's not the first round
         if self.Round >= 2:
-            nextRoundClient = f"\nRound {self.Round}, played by"
-            for index, answer_client in enumerate(self.client_answer):
-                if answer_client != -1 and not answer_client:
-                    nextRoundClient += f" {self.clients_information[index][0]} and"
-            nextRoundClient = nextRoundClient[:-3] + ":"
+            nextRoundClient = self.calculateNextRoundClients()
 
-        question_message += f"True or false: {question_text}"
+        # Construct the question message
+        question_message = f"\nTrue or false: {question_text}"
 
+        # Print the next round information and the question message with color
         print(nextRoundClient)
         print_with_color(f"\033[1m{question_message[1:]}\033[0m", '\033[35m')
 
-        return (nextRoundClient + question_message), answer_text
+        # Return a tuple containing the question message and the answer text
+        return (nextRoundClient + question_message), correct_answer
 
     def checkStatusGame(self):
         wrongAns, correctAns = 0, 0

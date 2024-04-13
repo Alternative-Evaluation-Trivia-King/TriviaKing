@@ -1,8 +1,7 @@
-import random
+
 from Client import Client
 from collections import Counter
 import threading
-import socket
 
 
 class Bot(Client):
