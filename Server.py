@@ -340,7 +340,7 @@ class Server:
 
         self.Show_Players()
 
-        return len(self.clients_information ) > 0
+        return len(self.clients_information) > 0
 
 
     """
@@ -537,7 +537,7 @@ class Server:
                     # Check if this round will be declared the winner
                     if self.checkHowManyCorrectAnswer() == 1:
                         cur = cur[:-1] + f" {self.clients_information[index][0]} wins!\n"
-                        self.winner = self.clients_information[index][0]
+                        self.winner = [self.clients_information[index][0], self.clients_information[index][4]]
 
                 # If the customer answered incorrectly
                 else:
@@ -573,14 +573,20 @@ class Server:
         except OSError as e:
             print_with_color(f"Error occurred in calculate_round_score: {e}")
 
+    """
+    Reset the game state and server settings.
+    """
     def reset_game(self):
         self.clients_information, self.client_answer = [], []
-        self.Round = 1
         self.copy_questions = copy.deepcopy(self.trivia_questions)
         self.Server_TCP.close()
-        self.SERVER_IP, self.Server_TCP = 0, 0
+        self.SERVER_IP, self.Server_TCP, self.countBot, self.Round = 0, 0, 0, 1
         self.StopOffer = False
+        self.winner = ""
 
+    """
+    Prints a table displaying the scores of all clients.
+    """
     def plot_table(self):
         print("\n")
         # Create bar graph
@@ -588,48 +594,63 @@ class Server:
         for client in self.clients_information:
             score_table.append([client[0], client[3]])
 
+        # Print table
         print(tabulate(score_table, headers="firstrow"))
 
+    """
+    Starts the game by sending welcome messages, choosing questions,
+    handling answers, and determining the winner.
+    """
     def start_game(self):
-        try:
-            self.StopOffer = True
+        # Set the flag to stop sending offer announcements
+        self.StopOffer = True
 
-            if not self.send_welcome_message():
-                self.reset_game()
-                return
+        # If while sending a welcome message, you discover that there are no players
+        if not self.send_welcome_message():
+            self.reset_game()
+            return
 
-            while self.checkHowManyCorrectAnswer() != 1:
-                if all(socket[1] is None for socket in self.clients_information):
-                    break
-                question, answer = self.choose_question()
-                for index, client_info in enumerate(self.clients_information):
-                    if client_info[2] is not None:
-                        client_info[2] = threading.Thread(target=self.handler_question_per_client,
-                                                          args=(client_info, question, answer, index),
-                                                          daemon=True)
-                        client_info[2].start()
+        # Continue the game until there's only one correct answer
+        while self.checkHowManyCorrectAnswer() != 1:
 
-                # Wait for all threads to finish their execution
-                for client_info in self.clients_information:
-                    if client_info[2] is not None:
-                        client_info[2].join()
+            # Break the loop if all clients have disconnected
+            if all(client_info[1] is None for client_info in self.clients_information):
+                break
 
-                self.calculate_round_results()
+            # Choose a question and answer for the round
+            question, correct_answer = self.choose_question()
+            # Start a thread for each active client to handle the question
+            for index, client_info in enumerate(self.clients_information):
+                if client_info[2] is not None:
+                    client_info[2] = threading.Thread(target=self.handler_question_per_client,
+                                                      args=(client_info, question, correct_answer, index),
+                                                      daemon=True)
+                    client_info[2].start()
 
-            message = f"\nGame over!\nCongratulations to the winner: {self.winner}"
+            # Wait for all threads to finish their execution
+            for client_info in self.clients_information:
+                if client_info[2] is not None:
+                    client_info[2].join()
+
+            # Calculate the results of the round
+            self.calculate_round_results()
+
+        if self.winner != "":
+            message = f"\nGame over!\nCongratulations to the winner: {self.winner[0]}"
+            print("\nGame over!\nCongratulations to the winner: " + self.winner[1] + f"{self.winner[0]}" + '\033[0m')
+
             for client_info in self.clients_information:
                 if client_info[1] is not None:
-                    client_info[1].sendall(message.encode('utf-8'))
-                    client_info[1].close()
+                    try:
+                        client_info[1].sendall(message.encode('utf-8'))
+                        client_info[1].close()
+                    except OSError:
+                        continue
 
             self.plot_table()
-            print("\nGame over, sending out offer requests...\n")
 
-            self.reset_game()
-
-        except OSError as e:
-            print_with_color("Error occurred in start_game: {e}")
-            # Handle the error as needed, e.g., log it, close the connection, etc.
+        self.reset_game()
+        print("\nGame over, sending out offer requests...\n")
 
 
 if __name__ == "__main__":

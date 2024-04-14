@@ -27,6 +27,8 @@ def ExtractPacketFromServer(data):
 
     return server_name, server_port, isRelevantPacket
 
+def print_with_color(message, color='\033[31m'):
+    print(color + message + '\033[0m')
 
 # ------------------------------------------ Client class ------------------------------------------------
 
@@ -70,7 +72,7 @@ class Client:
             print("Client started, listening for offer requests...")
 
         except OSError as e:
-            print(f"Error creating or binding UDP socket: {e}")
+            print_with_color(f"Error creating or binding UDP socket: {e}")
             if self.client_UDP is not None:
                 self.client_UDP.close()
             return
@@ -98,11 +100,11 @@ class Client:
                 self.client_TCP.sendall(player_name.encode() + b'\n')
 
                 # Start playing the game
-                self.clientPlay()
+                # self.clientPlay()
                 break
 
             except OSError as e:
-                print(f"Error creating or binding TCP socket: {e}")
+                print_with_color(f"Error creating or binding TCP socket: {e}")
                 if self.client_TCP is not None:
                     self.client_TCP.close()
 
@@ -123,7 +125,7 @@ class Client:
                 self.client_TCP.sendall(answer.encode())
 
             except UnicodeDecodeError:
-                print("Error: Unable to decode input. Please try again with valid characters.")
+                print_with_color("Error: Unable to decode input. Please try again with valid characters.")
 
     '''
     This method represents the gameplay loop for the client.
@@ -154,7 +156,7 @@ class Client:
 
         # Handling the case where the connection with the server crashes
         except ConnectionResetError:
-            print("Connection with the server crashed.")
+            print_with_color("Connection with the server crashed.")
             self.client_TCP.close()
 
 
@@ -162,3 +164,4 @@ if __name__ == "__main__":
     client = Client()
     while True:
         client.startClient()
+        client.clientPlay()
