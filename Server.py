@@ -411,7 +411,7 @@ class Server:
         nextRoundClient = f"\nRound {self.Round}, played by"
         for index, answer_client in enumerate(self.client_answer):
             # Check if the client continues to the next round
-            if answer_client != -1 and not answer_client:
+            if answer_client != None:
                 nextRoundClient += f" {self.clients_information[index][0]} and"
         return nextRoundClient[:-4] + ":"
 
@@ -447,85 +447,131 @@ class Server:
         # Return a tuple containing the question message and the answer text
         return (nextRoundClient + question_message), correct_answer
 
-    def checkStatusGame(self):
-        wrongAns, correctAns = 0, 0
+    """
+    Counts the number of correct answers given by players in the current round.
+
+    Returns:
+        int: The number of correct answers.
+    """
+    def checkHowManyCorrectAnswer(self):
+        correctAns = 0
         for ans in self.client_answer:
-            if ans == -1:
+            if ans == None:
                 continue
             if ans:
                 correctAns += 1
         return correctAns
 
-    def calculate_round_score(self):
+    """
+    Marks a client as having left the game.
+
+    Parameters:
+        indexOfClient (int): The index of the client in the clients_information list.
+    """
+    def markClientLeftTheGame(self, indexOfClient):
+        # If the socket is open
+        if self.clients_information[indexOfClient][1] is not None:
+            # Close socket
+            self.clients_information[indexOfClient][1].close()
+            # Mark socket with None
+            self.clients_information[indexOfClient][1] = None
+
+        # Mark thread with None
+        self.clients_information[indexOfClient][2] = None
+        # Mark client_answer with None
+        self.client_answer[indexOfClient] = None
+
+    """
+    Checks if the client is not active after giving an answer.
+
+    Parameters:
+        indexOfClient (int): The index of the client in the clients_information list.
+        answer_client (bool): Whether the client's answer was correct or not.
+
+    Returns:
+        bool: True if the client is not active after giving an answer, False otherwise.
+    """
+    def checkIfClientNotActiveAfterGiveAnswer(self, indexOfClient, answer_client):
+        # Check if the player left after giving an answer
+        try:
+            self.clients_information[indexOfClient][1].sendall("".encode('utf-8'))
+            return False
+        # If the player left
+        except OSError:
+            # If the client answered correctly before leaving the round
+            if answer_client:
+                # Subtract 1 from his score
+                self.clients_information[indexOfClient][3] -= 1
+
+            # Marks a client as having left the game.
+            self.markClientLeftTheGame(indexOfClient)
+            return True
+
+
+    """
+    Calculates the score for each player in the current round based on their answers.
+    """
+    def calculate_round_results(self):
         message = ""
         try:
+            # Iterate through each client
             for index, answer_client in enumerate(self.client_answer):
-                if answer_client == -1:
+                # If the player does not play this round
+                if answer_client == None:
                     continue
 
+                # If the player has left this round without entering an answer
                 if self.clients_information[index][1] is None and not answer_client:
                     cur = f"{self.clients_information[index][0]} is left!\n"
-                    message += cur
-                    print_with_color(cur[:-1], self.clients_information[index][4])
-                    continue
+                    # Mark the client as left
+                    self.markClientLeftTheGame(index)
 
-                try:
-                    self.clients_information[index][1].sendall("".encode('utf-8'))
-                except OSError:
-                    self.clients_information[index][1] = None
-                    self.clients_information[index][2] = None
-                    if answer_client:
-                        self.clients_information[index][3] -= 1
-                    self.client_answer[index] = -1
+                # If the player left after giving an answer
+                elif self.checkIfClientNotActiveAfterGiveAnswer(index, answer_client):
                     cur = f"{self.clients_information[index][0]} is left!\n"
-                    message += cur
-                    print_with_color(cur[:-1], self.clients_information[index][4])
-                    continue
 
-                if answer_client:
+                # If the client answered correctly
+                elif answer_client:
                     cur = f"{self.clients_information[index][0]} is correct!\n"
-                    message += cur
 
-                    if self.checkStatusGame() == 1:
-                        cur2 = f"{self.clients_information[index][0]} wins!\n"
-                        message = message[:-1] + " " + cur2
+                    # Check if this round will be declared the winner
+                    if self.checkHowManyCorrectAnswer() == 1:
+                        cur = cur[:-1] + f" {self.clients_information[index][0]} wins!\n"
                         self.winner = self.clients_information[index][0]
 
-                        cur = cur[:-1] + " " + cur2
-
-                    print_with_color(cur[:-1], self.clients_information[index][4])
+                # If the customer answered incorrectly
                 else:
                     cur = f"{self.clients_information[index][0]} is incorrect!\n"
-                    message += f"{self.clients_information[index][0]} is incorrect!\n"
-                    print_with_color(cur[:-1], self.clients_information[index][4])
 
+                # Update the message
+                message += cur
+                print_with_color(cur[:-1], self.clients_information[index][4])
+
+            # Increment the round counter
             self.Round += 1
 
+            # Send the round result message to all clients
             for index, client_info in enumerate(self.clients_information):
-                if client_info[1] is None:
-                    client_info[2] = None
-                    self.client_answer[index] = -1
-                    continue
-
-                if client_info[2] is not None:
+                # If the socket is open
+                if client_info[1] is not None:
                     try:
                         client_info[1].sendall(message.encode('utf-8'))
                     except OSError:
-                        client_info[1] = None
-                        client_info[2] = None
-                        self.client_answer[index] = -1
+                        # Mark the client as left
+                        self.markClientLeftTheGame(index)
 
-            if self.checkStatusGame() == 0:
+            # Check if everyone got it wrong, so they can play the next round
+            if self.checkHowManyCorrectAnswer() == 0:
                 return None
 
+            # Eliminate the players who gave a wrong answer
             for index, answer_client in enumerate(self.client_answer):
                 if not answer_client:
                     self.clients_information[index][2] = None
-                    self.client_answer[index] = -1
+                    self.client_answer[index] = None
 
         except OSError as e:
             print_with_color(f"Error occurred in calculate_round_score: {e}")
-            # Handle the error as needed, e.g., log it, close the connection, etc.
 
     def reset_game(self):
         self.clients_information, self.client_answer = [], []
@@ -552,7 +598,7 @@ class Server:
                 self.reset_game()
                 return
 
-            while self.checkStatusGame() != 1:
+            while self.checkHowManyCorrectAnswer() != 1:
                 if all(socket[1] is None for socket in self.clients_information):
                     break
                 question, answer = self.choose_question()
@@ -568,7 +614,7 @@ class Server:
                     if client_info[2] is not None:
                         client_info[2].join()
 
-                self.calculate_round_score()
+                self.calculate_round_results()
 
             message = f"\nGame over!\nCongratulations to the winner: {self.winner}"
             for client_info in self.clients_information:
