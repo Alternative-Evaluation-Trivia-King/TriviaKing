@@ -251,7 +251,7 @@ class Server:
             # If the player name is "BOT", generate a unique name
             if player_name == "BOT":
                 self.countBot += 1
-                player_name = f"Bot{self.countBot}"
+                player_name = f"BOT{self.countBot}"
                 client_socket.sendall(player_name.encode('utf-8'))
 
             # Append client information to the list (name, socket, thread, score, color)

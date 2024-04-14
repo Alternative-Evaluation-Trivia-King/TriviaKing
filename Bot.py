@@ -9,6 +9,7 @@ class Bot(Client):
 
     def __init__(self):
         super().__init__()
+        self.names = ["BOT"]
         self.trivia_questions_dic = {}
         self.yes_no_answers_counter = Counter({"Y": 0, "N": 0})
         self.bot_name = ""  # bot name will give by the server
@@ -30,14 +31,9 @@ class Bot(Client):
 
         self.last_question = message.split("True or false: ", 1)[-1]
 
-    def Answer_The_Question2(self, message):
-
-        self.handle_message(message)
         mostChoice = self.yes_no_answers_counter.most_common(1)[0][0]
         self.last_answer = self.trivia_questions_dic.get(self.last_question, mostChoice)
         self.client_TCP.sendall(self.last_answer.encode())
-
-
 
 
     def clientPlay(self):
@@ -47,23 +43,19 @@ class Bot(Client):
                 if not message.startswith("BOT"):
                     print(message)
 
-                if "Welcome" in message:
+                if "Welcome" in message or "Player" in message:
                     continue
 
                 elif message.startswith("BOT"):
                     self.bot_name = message
                     continue
 
-                # else:
-                #     self.handle_message(message)
-
                 elif "Game over!" in message:
                     self.client_TCP.close()
+                    print(self.trivia_questions_dic)
                     break
 
-
-
-                Answer_Question_Thread = threading.Thread(target=self.Answer_The_Question2,
+                Answer_Question_Thread = threading.Thread(target=self.handle_message,
                                                           args=(message,),
                                                           daemon=True)
                 Answer_Question_Thread.start()
