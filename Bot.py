@@ -1,8 +1,8 @@
+import re
 import time
 
 from Client import Client
 from collections import Counter
-import threading
 
 
 class Bot(Client):
@@ -29,38 +29,35 @@ class Bot(Client):
             self.trivia_questions_dic[self.last_question] = answer
             self.yes_no_answers_counter[answer] += 1
 
-        self.last_question = message.split("True or false: ", 1)[-1]
 
+    def Answer_The_Question2(self, message):
+        time.sleep(1)
+        self.last_question = message.split("True or false: ", 1)[-1]
         mostChoice = self.yes_no_answers_counter.most_common(1)[0][0]
         self.last_answer = self.trivia_questions_dic.get(self.last_question, mostChoice)
         self.client_TCP.sendall(self.last_answer.encode())
-
 
     def clientPlay(self):
         try:
             while True:
                 message = self.client_TCP.recv(1024).decode('utf-8')
-                if not message.startswith("BOT"):
-                    print(message)
 
-                if "Welcome" in message or "Player" in message:
-                    continue
-
-                elif message.startswith("BOT"):
+                if re.match(r'^BOT\d+$', message):
                     self.bot_name = message
                     continue
 
-                elif "Game over!" in message:
-                    self.client_TCP.close()
+                print(message)
+
+                if "Game over!" in message:
                     print(self.trivia_questions_dic)
+                    self.client_TCP.close()
                     break
 
-                Answer_Question_Thread = threading.Thread(target=self.handle_message,
-                                                          args=(message,),
-                                                          daemon=True)
-                Answer_Question_Thread.start()
+                if "True or false" in message:
+                    self.Answer_The_Question2(message)
 
-                time.sleep(1)
+                elif "correct" in message or "incorrect" in message:
+                    self.handle_message(message)
 
             print("Server disconnected, listening for offer requests...")
 
