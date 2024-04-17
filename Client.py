@@ -1,7 +1,7 @@
 import random
 import socket
 import threading
-
+from Server import print_with_color
 
 # ------------------------------------------ Helper function ------------------------------------------------
 
@@ -27,11 +27,8 @@ def ExtractPacketFromServer(data):
 
     return server_name, server_port, isRelevantPacket
 
-def print_with_color(message, color='\033[31m'):
-    print(color + message + '\033[0m')
 
 # ------------------------------------------ Client class ------------------------------------------------
-
 '''
 This class facilitates the interaction of a client with a server for multiplayer gaming purposes.
 It's intended for creating multiple client instances that can connect to a server simultaneously.
@@ -69,7 +66,7 @@ class Client:
             self.client_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             # Bind the socket to listen on all available interfaces (0.0.0.0)
             self.client_UDP.bind(('0.0.0.0', self.BROADCAST_PORT))
-            print("Client started, listening for offer requests...")
+            print_with_color("Client started, listening for offer requests...", '\033[92m')
 
         except OSError as e:
             print_with_color(f"Error creating or binding UDP socket: {e}")
@@ -88,12 +85,12 @@ class Client:
                 if not isRelevantPacket:
                     continue
 
-                print(f"Received offer from server {server_name} at address {server_address[0]}, attempting to connect...")
+                print_with_color(f"Received offer from server {server_name} at address {server_address[0]}, attempting to connect...", '\033[92m')
                 # Create a TCP socket for establishing a connection with the server
                 self.client_TCP = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 # Connect to the server over TCP using its address and port
                 self.client_TCP.connect((server_address[0], server_port))
-                print("Connected to server over TCP.")
+                print_with_color("Connected to server over TCP.", '\033[92m')
 
                 # Send a random player name to the server
                 player_name = random.choice(self.names)
@@ -138,24 +135,26 @@ class Client:
             while True:
                 # Receive messages from the server
                 message = self.client_TCP.recv(1024).decode('utf-8')
-                print(message)
-
-                if "Welcome" in message:
-                    continue
 
                 # Break the loop if the message contains "Game over!"
                 if "Game over!" in message:
+                    print_with_color(message, '\033[33m')
                     self.client_TCP.close()
                     break
 
-                # Start a thread for handling user input
-                Answer_Question_Thread = threading.Thread(target=self.Answer_The_Question, daemon=True)
-                Answer_Question_Thread.start()
+                elif "True or false" in message:
+                    print_with_color(f"\033[1m{message}\033[0m", '\033[35m')
+                    # Start a thread for handling user input
+                    Answer_Question_Thread = threading.Thread(target=self.Answer_The_Question, daemon=True)
+                    Answer_Question_Thread.start()
 
-            print("\nServer disconnected, listening for offer requests...\n")
+                else:
+                    print_with_color(message, '\033[33m')
+
+            print_with_color("\nServer disconnected, listening for offer requests...\n", '\033[92m')
 
         # Handling the case where the connection with the server crashes
-        except ConnectionResetError:
+        except (ConnectionResetError, ConnectionAbortedError):
             print_with_color("Connection with the server crashed.")
             self.client_TCP.close()
 
@@ -163,5 +162,15 @@ class Client:
 if __name__ == "__main__":
     client = Client()
     while True:
-        client.startClient()
-        client.clientPlay()
+        try:
+            client.startClient()
+            client.clientPlay()
+
+        except KeyboardInterrupt:
+            if client.client_UDP:
+                client.client_UDP.close()
+            if client.client_TCP:
+                client.client_TCP.close()
+            break
+
+

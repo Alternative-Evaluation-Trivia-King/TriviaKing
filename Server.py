@@ -15,8 +15,8 @@ Returns:
     str: ANSI color code.
 """
 def choose_Color():
-    # GREEN, YELLOW, BLUE, CYAN
-    color_array = ['\033[32m', '\033[33m', '\033[34m', '\033[36m']
+    # GREEN, YELLOW, BLUE, CYAN, Light_Yellow, light_Blue, Light_Cyan
+    color_array = ['\033[32m', '\033[33m', '\033[34m', '\033[36m', '\033[93m', '\033[94m', '\033[96m']
 
     return random.choice(color_array)
 
@@ -89,6 +89,7 @@ class Server:
         self.winner = ""
         self.Round = 1
         self.countBot = 0
+        self.bestScoreEver = ["", 0]
         self.trivia_questions = [
             {"question": "Paris is the capital city of France.", "is_true": True},
             {"question": "Berlin is the capital city of Germany.", "is_true": True},
@@ -182,7 +183,7 @@ class Server:
         # Set socket options to allow broadcasting
         self.Server_UDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-        print("Server started, listening on IP address", self.SERVER_IP)
+        print_with_color(f"Server started, listening on IP address {self.SERVER_IP}", '\033[92m')
 
         # Create a thread for sending offer announcements
         threading.Thread(target=self.send_offer_announcements, args=(SERVER_PORT,), daemon=True).start()
@@ -274,7 +275,7 @@ class Server:
                 # Craft and send the offer announcement packet
                 offer_packet = craft_offer_packet(SERVER_PORT)
                 self.Server_UDP.sendto(offer_packet, ('<broadcast>', self.BROADCAST_PORT))
-                print("Offer announcement sent")
+                print_with_color("Offer announcement sent", '\033[92m')
 
                 # Sleep for 1 second before sending the next offer
                 time.sleep(1)
@@ -283,7 +284,7 @@ class Server:
             except OSError as e:
                 print_with_color(f"An OS error occurred in the offer thread: {e}")
 
-        # self.Server_UDP.close()
+        self.Server_UDP.close()
 
 
     """
@@ -298,6 +299,7 @@ class Server:
             Show_Players += curr
             print_with_color(curr[:-1], client_info[4])
 
+        print("")
         # Send the current players to all active clients
         for client_info in self.clients_information:
             try:
@@ -394,7 +396,7 @@ class Server:
             self.client_answer[index] = False
 
         # If a ConnectionResetError occurs, print a message and close the client socket
-        except ConnectionResetError:
+        except (ConnectionResetError, ConnectionAbortedError):
             print_with_color("Connection with the client crashed.")
             client_info[1].close()
             client_info[1] = None
@@ -413,7 +415,17 @@ class Server:
             # Check if the client continues to the next round
             if answer_client != None:
                 nextRoundClient += f" {self.clients_information[index][0]} and"
-        return nextRoundClient[:-4] + ":"
+
+        nextRoundClient = nextRoundClient[:-4] + ":"
+        print(nextRoundClient)
+
+        for index, answer_client in enumerate(self.client_answer):
+            if answer_client != None:
+                try:
+                    self.clients_information[index][1].sendall(nextRoundClient.encode('utf-8'))
+                except OSError:
+                    continue
+
 
     """
     Chooses a random question from the available pool and prepares it for presentation to the players.
@@ -423,7 +435,8 @@ class Server:
         with the text of the chosen question and correct answer.
     """
     def choose_question(self):
-        nextRoundClient = ""
+        if len(self.copy_questions) == 0:
+            return None, None
 
         # Choose random question
         random_question = random.choice(self.copy_questions)
@@ -435,17 +448,16 @@ class Server:
 
         # Check if it's not the first round
         if self.Round >= 2:
-            nextRoundClient = self.calculateNextRoundClients()
+            self.calculateNextRoundClients()
 
         # Construct the question message
-        question_message = f"\nTrue or false: {question_text}"
+        question_message = f"True or false: {question_text}"
 
         # Print the next round information and the question message with color
-        print(nextRoundClient)
-        print_with_color(f"\033[1m{question_message[1:]}\033[0m", '\033[35m')
+        print_with_color(f"\033[1m{question_message}\033[0m", '\033[35m')
 
         # Return a tuple containing the question message and the answer text
-        return (nextRoundClient + question_message), correct_answer
+        return question_message, correct_answer
 
     """
     Counts the number of correct answers given by players in the current round.
@@ -538,6 +550,8 @@ class Server:
                     if self.checkHowManyCorrectAnswer() == 1:
                         cur = cur[:-1] + f" {self.clients_information[index][0]} wins!\n"
                         self.winner = [self.clients_information[index][0], self.clients_information[index][4]]
+                        if self.bestScoreEver[1] < self.clients_information[index][3]:
+                            self.bestScoreEver = [self.clients_information[index][0], self.clients_information[index][3]]
 
                 # If the customer answered incorrectly
                 else:
@@ -552,10 +566,10 @@ class Server:
 
             # Send the round result message to all clients
             for index, client_info in enumerate(self.clients_information):
-                # If the socket is open
-                if client_info[1] is not None:
+                # Send to only client that play this round
+                if client_info[2] is not None:
                     try:
-                        client_info[1].sendall(message.encode('utf-8'))
+                        client_info[1].sendall(message[:-1].encode('utf-8'))
                     except OSError:
                         # Mark the client as left
                         self.markClientLeftTheGame(index)
@@ -577,10 +591,20 @@ class Server:
     Reset the game state and server settings.
     """
     def reset_game(self):
+        for client_info in self.clients_information:
+            if client_info[1] is not None:
+                try:
+                    client_info[1].close()
+                except OSError:
+                    continue
+
+        if server.Server_UDP:
+            server.Server_UDP.close()
+
         self.clients_information, self.client_answer = [], []
         self.copy_questions = copy.deepcopy(self.trivia_questions)
         self.Server_TCP.close()
-        self.SERVER_IP, self.Server_TCP, self.countBot, self.Round = 0, 0, 0, 1
+        self.SERVER_IP, self.Server_TCP, self.countBot, self.Server_UDP, self.Round = 0, 0, 0, 0, 1
         self.StopOffer = False
         self.winner = ""
 
@@ -596,6 +620,8 @@ class Server:
 
         # Print table
         print(tabulate(score_table, headers="firstrow"))
+        print("\n")
+        print(f"Best score ever: {self.bestScoreEver[0]} with {self.bestScoreEver[1]} points")
 
     """
     Starts the game by sending welcome messages, choosing questions,
@@ -615,10 +641,16 @@ class Server:
 
             # Break the loop if all clients have disconnected
             if all(client_info[1] is None for client_info in self.clients_information):
-                break
+                self.reset_game()
+                print_with_color("\nGame over, sending out offer requests...\n", '\033[92m')
+                return
 
             # Choose a question and answer for the round
             question, correct_answer = self.choose_question()
+            if question == None:
+                self.winner = "Draw"
+                break
+
             # Start a thread for each active client to handle the question
             for index, client_info in enumerate(self.clients_information):
                 if client_info[2] is not None:
@@ -635,25 +667,31 @@ class Server:
             # Calculate the results of the round
             self.calculate_round_results()
 
-        if self.winner != "":
+        if self.winner == "Draw":
+            message = f"\nGame over!\nThe game ended in a draw"
+            print(message)
+
+        else:
             message = f"\nGame over!\nCongratulations to the winner: {self.winner[0]}"
             print("\nGame over!\nCongratulations to the winner: " + self.winner[1] + f"{self.winner[0]}" + '\033[0m')
 
-            for client_info in self.clients_information:
-                if client_info[1] is not None:
-                    try:
-                        client_info[1].sendall(message.encode('utf-8'))
-                        client_info[1].close()
-                    except OSError:
-                        continue
+        for client_info in self.clients_information:
+            if client_info[1] is not None:
+                try:
+                    client_info[1].sendall(message.encode('utf-8'))
+                except OSError:
+                    continue
 
-            self.plot_table()
-
+        self.plot_table()
         self.reset_game()
-        print("\nGame over, sending out offer requests...\n")
+        print_with_color("\nGame over, sending out offer requests...\n", '\033[92m')
 
 
 if __name__ == "__main__":
     server = Server()
     while True:
-        server.startServer()
+        try:
+            server.startServer()
+        except KeyboardInterrupt:
+            server.reset_game()
+            break
