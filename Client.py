@@ -77,7 +77,7 @@ class Client:
         # Continuously listen for offer requests and establish TCP connection
         while True:
             try:
-                # Wait to receive data from the UDP socket
+                # Wait to receive packet from the UDP socket
                 data, server_address = self.client_UDP.recvfrom(1024)
                 # Extract server information from the received data
                 server_name, server_port, isRelevantPacket = ExtractPacketFromServer(data)

@@ -28,12 +28,12 @@ class Bot(Client):
 
 
     """
-    Handles incoming messages from the server.
+    Checks the bot answer if correct.
 
     Args:
         message (str): The message received from the server.
     """
-    def handle_message(self, message):
+    def check_bot_answer(self, message):
         # Check if the bot was wrong in the last question
         if f"{self.bot_name} is incorrect" in message:
             # If the bot was wrong, toggle the answer for the last question
@@ -89,7 +89,7 @@ class Bot(Client):
                 # If the message contains information about correct or incorrect answers, handle it
                 elif "correct" in message or "incorrect" in message:
                     print_with_color(message, '\033[33m')
-                    self.handle_message(message)
+                    self.check_bot_answer(message)
 
                 else:
                     print_with_color(message, '\033[33m')

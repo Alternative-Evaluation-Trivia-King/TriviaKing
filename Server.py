@@ -216,8 +216,6 @@ class Server:
                     self.Server_TCP.settimeout(10)
                     # Accept an incoming client connection
                     client_socket, _ = self.Server_TCP.accept()
-                    # Reset the timeout after accepting the connection
-                    # self.Server_TCP.settimeout(None)
                     # Create a thread to handle the new client
                     threading.Thread(target=self.save_user, args=(client_socket,), daemon=True).start()
 
@@ -297,6 +295,8 @@ class Server:
             curr = f"Player {index + 1}: {client_info[0]}\n"
             Show_Players += curr
             print_with_color(curr[:-1], client_info[4])
+
+        # Loop through each non-active client
         for client_info in nonActive_clients_information:
             curr = f"{client_info[0]}: left\n"
             Show_Players += curr
@@ -407,6 +407,7 @@ class Server:
             client_info[1] = None
             self.client_answer[index] = False
 
+        # Update response time for the statistics
         response_time = (time.time() - startTime)
         client_info[5] += (10 if response_time > 10 else response_time)
 
@@ -598,6 +599,7 @@ class Server:
     Reset the game state and server settings.
     """
     def reset_game(self):
+        # Close all the clients TCP sockets
         for client_info in self.clients_information:
             if client_info[1] is not None:
                 try:
