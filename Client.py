@@ -120,7 +120,7 @@ class Client:
                 self.client_TCP.sendall(answer.encode())
 
             except UnicodeDecodeError:
-                print_with_color("Error: Unable to decode input. Please try again with valid characters.")
+                print_with_color("Connection with the client crashed.")
 
     '''
     This method represents the gameplay loop for the client.
