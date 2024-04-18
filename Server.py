@@ -283,7 +283,6 @@ class Server:
             except OSError as e:
                 print_with_color(f"An OS error occurred in the offer thread: {e}")
 
-        self.Server_UDP.close()
 
 
     """
@@ -450,10 +449,10 @@ class Server:
             self.calculateNextRoundClients()
 
         # Construct the question message
-        question_message = f"True or false: {question_text}"
+        question_message = f"\nTrue or false: {question_text}"
 
         # Print the next round information and the question message with color
-        print_with_color(f"\033[1m{question_message}\033[0m", '\033[35m')
+        print_with_color(f"\033[1m{question_message[1:]}\033[0m", '\033[35m')
 
         # Return a tuple containing the question message and the answer text
         return question_message, correct_answer
@@ -597,13 +596,11 @@ class Server:
                 except OSError:
                     continue
 
-        if server.Server_UDP:
-            server.Server_UDP.close()
 
         self.clients_information, self.client_answer = [], []
         self.copy_questions = copy.deepcopy(self.trivia_questions)
         self.Server_TCP.close()
-        self.SERVER_IP, self.Server_TCP, self.countBot, self.Server_UDP, self.Round = 0, 0, 0, 0, 1
+        self.SERVER_IP, self.Server_TCP, self.countBot, self.Round = 0, 0, 0, 1
         self.StopOffer = False
         self.winner = ""
 
