@@ -187,10 +187,8 @@ class Server:
         # Create a thread for sending offer announcements
         threading.Thread(target=self.send_offer_announcements, args=(SERVER_PORT,), daemon=True).start()
 
-        # Continuously listen for client connections until at least one client connects
-        while len(self.clients_information) == 0:
-            # Listen for client names
-            self.listen_for_clients(SERVER_PORT)
+        # Listen for client names
+        self.listen_for_clients(SERVER_PORT)
 
         self.start_game()
 
@@ -219,13 +217,16 @@ class Server:
                     # Accept an incoming client connection
                     client_socket, _ = self.Server_TCP.accept()
                     # Reset the timeout after accepting the connection
-                    self.Server_TCP.settimeout(None)
+                    # self.Server_TCP.settimeout(None)
                     # Create a thread to handle the new client
                     threading.Thread(target=self.save_user, args=(client_socket,), daemon=True).start()
 
                 # Break out of the loop if no connections are received within the timeout period
                 except socket.timeout:
-                    break
+                    if len(self.clients_information) >= 2:
+                        break
+                    else:
+                        continue
 
                 # Print any socket errors encountered during the process
                 except socket.error as e:
@@ -254,8 +255,8 @@ class Server:
                 player_name = f"BOT{self.countBot}"
                 client_socket.sendall(player_name.encode('utf-8'))
 
-            # Append client information to the list (name, socket, thread, score, color)
-            self.clients_information.append([player_name, client_socket, 0, 0, choose_Color()])
+            # Append client information to the list (name, socket, thread, score, color, response time)
+            self.clients_information.append([player_name, client_socket, 0, 0, choose_Color(), 0])
 
         # Print any OS errors encountered during the process
         except OSError as e:
@@ -288,12 +289,16 @@ class Server:
     """
     Displays the list of current players to the server console and sends it to all active clients.
     """
-    def Show_Players(self):
+    def Show_Players(self, nonActive_clients_information):
         Show_Players = ""
         # Loop through each active client
         for index, client_info in enumerate(self.clients_information):
             # Construct the string representation of the player
             curr = f"Player {index + 1}: {client_info[0]}\n"
+            Show_Players += curr
+            print_with_color(curr[:-1], client_info[4])
+        for client_info in nonActive_clients_information:
+            curr = f"{client_info[0]}: left\n"
             Show_Players += curr
             print_with_color(curr[:-1], client_info[4])
 
@@ -316,6 +321,7 @@ class Server:
     def send_welcome_message(self):
         # List to store information about active clients.
         active_clients_information = []
+        nonActive_clients_information = []
 
         welcome_message = "\nWelcome to the TriviaKing server, where we are answering trivia questions about capitals cities in europe."
         # Check who is still active among all those registered for the game
@@ -325,6 +331,7 @@ class Server:
                 client_info[1].sendall(welcome_message.encode('utf-8'))
             # If there's an OSError, continue to the next client
             except OSError:
+                nonActive_clients_information.append(client_info)
                 continue
             # If the message is sent successfully, add the client's information to the list of active clients
             active_clients_information.append(client_info)
@@ -338,7 +345,7 @@ class Server:
         # Update the list of clients' information to only include the active clients
         self.clients_information = active_clients_information
 
-        self.Show_Players()
+        self.Show_Players(nonActive_clients_information)
 
         return len(self.clients_information) > 0
 
@@ -400,6 +407,9 @@ class Server:
             client_info[1] = None
             self.client_answer[index] = False
 
+        response_time = (time.time() - startTime)
+        client_info[5] += (10 if response_time > 10 else response_time)
+
     """
     Calculates the clients who will participate in the next round.
 
@@ -433,6 +443,7 @@ class Server:
         with the text of the chosen question and correct answer.
     """
     def choose_question(self):
+        time.sleep(0.5)
         if len(self.copy_questions) == 0:
             return None, None
 
@@ -449,10 +460,10 @@ class Server:
             self.calculateNextRoundClients()
 
         # Construct the question message
-        question_message = f"\nTrue or false: {question_text}"
+        question_message = f"True or false: {question_text}"
 
         # Print the next round information and the question message with color
-        print_with_color(f"\033[1m{question_message[1:]}\033[0m", '\033[35m')
+        print_with_color(f"\033[1m{question_message}\033[0m", '\033[35m')
 
         # Return a tuple containing the question message and the answer text
         return question_message, correct_answer
@@ -548,8 +559,6 @@ class Server:
                     if self.checkHowManyCorrectAnswer() == 1:
                         cur = cur[:-1] + f" {self.clients_information[index][0]} wins!\n"
                         self.winner = [self.clients_information[index][0], self.clients_information[index][4]]
-                        if self.bestScoreEver[1] < self.clients_information[index][3]:
-                            self.bestScoreEver = [self.clients_information[index][0], self.clients_information[index][3]]
 
                 # If the customer answered incorrectly
                 else:
@@ -607,16 +616,23 @@ class Server:
     """
     Prints a table displaying the scores of all clients.
     """
+
     def plot_table(self):
+        number_questions_asked = len(self.trivia_questions) - len(self.copy_questions)
         print("\n")
         # Create bar graph
-        score_table = [["Clients", "Score"]]
+        score_table = [["Clients", "Score", "Success Rates", "Response time"]]
         for client in self.clients_information:
-            score_table.append([client[0], client[3]])
+            success_rate = "{:.3f}%".format((client[3] / number_questions_asked) * 100)
+            response_time = "{:.3f}sec".format(client[5])
+            score_table.append([client[0], client[3], success_rate, response_time])
 
         # Print table
         print(tabulate(score_table, headers="firstrow"))
         print("\n")
+        for client in self.clients_information:
+            if self.bestScoreEver[1] < client[3]:
+                self.bestScoreEver = [client[0], client[3]]
         print(f"Best score ever: {self.bestScoreEver[0]} with {self.bestScoreEver[1]} points")
 
     """
@@ -664,7 +680,7 @@ class Server:
             self.calculate_round_results()
 
         if self.winner == "Draw":
-            message = f"\nGame over!\nThe game ended in a draw"
+            message = f"\nGame over!\nThe game ended without a decision"
             print(message)
 
         else:
