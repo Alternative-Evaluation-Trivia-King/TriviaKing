@@ -48,7 +48,7 @@ class Client:
         self.client_TCP = 0
         self.BROADCAST_PORT = 13117
         self.names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Hannah",
-                      "Isaac", "Julia", "Kevin", "Linda", "Michael", "Nancy", "Olivia"]
+                      "Ofek", "Julia", "Kevin", "Linda", "Michael", "Nancy", "Olivia", "Alon", "Yoni"]
 
     '''
     This method is responsible for the entire interaction process between the client and the server.
@@ -70,7 +70,7 @@ class Client:
 
         except OSError as e:
             print_with_color(f"Error creating or binding UDP socket: {e}")
-            if self.client_UDP is not None:
+            if self.client_UDP:
                 self.client_UDP.close()
             return
 
@@ -96,8 +96,6 @@ class Client:
                 player_name = random.choice(self.names)
                 self.client_TCP.sendall(player_name.encode() + b'\n')
 
-                # Start playing the game
-                # self.clientPlay()
                 break
 
             except OSError as e:

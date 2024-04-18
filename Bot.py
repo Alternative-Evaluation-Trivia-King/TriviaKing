@@ -57,6 +57,7 @@ class Bot(Client):
         self.last_answer = self.trivia_questions_dic.get(self.last_question, random.choice(["Y", "N"]))
         # Send the answer back to the server
         self.client_TCP.sendall(self.last_answer.encode())
+        print(self.last_answer)
 
 
     """
@@ -89,11 +90,6 @@ class Bot(Client):
                 elif "correct" in message or "incorrect" in message:
                     print_with_color(message, '\033[33m')
                     self.handle_message(message)
-
-                # when the server closes the connection, the recv() return empty string.
-                elif message == "":
-                    self.client_TCP.close()
-                    break
 
                 else:
                     print_with_color(message, '\033[33m')

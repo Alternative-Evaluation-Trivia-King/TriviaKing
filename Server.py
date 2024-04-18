@@ -78,6 +78,7 @@ class Server:
     - winner: The name of the winning client.
     - Round: The current round of the game.
     - countBot: The count of bot clients connected to the server.
+    - bestScoreEver: save the best score ever and the client
     - trivia_questions: A list of trivia questions for the game.
     - copy_questions: A copy of trivia_questions to ensure questions are not repeated.
     """
@@ -122,24 +123,22 @@ class Server:
     """
     Gets the IP address of the server.
     """
+
     def get_ip_address(self):
         while True:
-            # Create a socket object
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
-                # Connect to a remote server
-                s.connect(("8.8.8.8", 80))
-                # Get the local IP address of the socket
-                self.SERVER_IP = s.getsockname()[0]
-                # Break out of the loop if successful
-                break
+                # Create a socket object and attempt to connect to a remote server
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    # Connect the socket to a remote server (Google's DNS server)
+                    s.connect(("8.8.8.8", 80))
+                    # Get the local IP address of the socket
+                    self.SERVER_IP = s.getsockname()[0]
+                    # Break out of the loop if successful
+                    break
 
             except socket.error:
+                # Try again
                 pass
-
-            finally:
-                # Close the socket
-                s.close()
 
 
     """
