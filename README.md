@@ -15,3 +15,6 @@ It manages the interaction between multiple clients, handling connections, <br /
 sending offer announcements, managing gameplay, and determining the winner. <br />
 The server provides a centralized platform for clients to connect, <br />
 exchange messages, and participate in multiplayer games. <br /> <br />
+
+# Share link to chat with Chat GPT
+https://chat.openai.com/share/50b23e5b-b27c-406b-8d9a-1bf69dcbb784
